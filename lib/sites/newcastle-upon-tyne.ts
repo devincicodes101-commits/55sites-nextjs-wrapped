@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0191 743 3688",
   phoneHref: "tel:01917433688",
-  email: "info@asbestosabatementnewcastle-upon-tyne.co.uk",
+  email: "info@newcastleasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementnewcastle-upon-tyne.co.uk",
+  domain: "newcastleasbestosabatement.co.uk",
 
   theme: {
     primary: "#111827",

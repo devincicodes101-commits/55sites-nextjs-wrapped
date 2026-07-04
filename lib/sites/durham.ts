@@ -53,9 +53,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0191 743 4774",
   phoneHref: "tel:01917434774",
-  email: "info@asbestosabatementdurham.co.uk",
+  email: "info@durhamasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementdurham.co.uk",
+  domain: "durhamasbestosabatement.co.uk",
 
   theme: {
     primary: "#B45309",

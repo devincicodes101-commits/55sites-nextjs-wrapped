@@ -31,9 +31,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01225 617363",
   phoneHref: "tel:01225617363",
-  email: "info@asbestosabatementbath.co.uk",
+  email: "info@bathasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementbath.co.uk",
+  domain: "bathasbestosabatement.co.uk",
 
   theme: {
     primary: "#8B6914",

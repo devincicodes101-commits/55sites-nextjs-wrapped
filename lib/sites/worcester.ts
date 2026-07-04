@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01905 975389",
   phoneHref: "tel:01905975389",
-  email: "info@asbestosabatementworcester.co.uk",
+  email: "info@worcesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementworcester.co.uk",
+  domain: "worcesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#5C1F3E",

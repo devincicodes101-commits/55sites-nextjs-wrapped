@@ -27,9 +27,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01749 706744",
   phoneHref: "tel:01749706744",
-  email: "info@asbestosabatementwells.co.uk",
+  email: "info@wellsasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementwells.co.uk",
+  domain: "wellsasbestosabatement.co.uk",
 
   theme: {
     primary: "#365314",

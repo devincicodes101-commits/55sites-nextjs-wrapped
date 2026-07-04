@@ -68,9 +68,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01482 424670",
   phoneHref: "tel:01482424670",
-  email: "info@asbestosabatementkingston-upon-hull.co.uk",
+  email: "info@kingstonuponhullasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementkingston-upon-hull.co.uk",
+  domain: "kingstonuponhullasbestosabatement.co.uk",
 
   theme: {
     primary: "#1A3A6B",

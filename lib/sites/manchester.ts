@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0161 524 7142",
   phoneHref: "tel:01615247142",
-  email: "info@asbestosabatementmanchester.co.uk",
+  email: "info@manchesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementmanchester.co.uk",
+  domain: "manchesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#0F4C3A",

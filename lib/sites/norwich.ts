@@ -27,9 +27,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01603 567972",
   phoneHref: "tel:01603567972",
-  email: "info@asbestosabatementnorwich.co.uk",
+  email: "info@norwichasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementnorwich.co.uk",
+  domain: "norwichasbestosabatement.co.uk",
 
   theme: {
     primary: "#0F5257",

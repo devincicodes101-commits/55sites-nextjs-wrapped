@@ -27,9 +27,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0161 524 6114",
   phoneHref: "tel:01615246114",
-  email: "info@asbestosabatementsalford.co.uk",
+  email: "info@salfordasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementsalford.co.uk",
+  domain: "salfordasbestosabatement.co.uk",
 
   theme: {
     primary: "#0A5C99",

@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0191 743 4073",
   phoneHref: "tel:01917434073",
-  email: "info@asbestosabatementsunderland.co.uk",
+  email: "info@sunderlandasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementsunderland.co.uk",
+  domain: "sunderlandasbestosabatement.co.uk",
 
   theme: {
     primary: "#264653",

@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01273 115157",
   phoneHref: "tel:01273115157",
-  email: "info@asbestosabatementbrighton-hove.co.uk",
+  email: "info@brightonasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementbrighton-hove.co.uk",
+  domain: "brightonasbestosabatement.co.uk",
 
   theme: {
     primary: "#0E7490",

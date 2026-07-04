@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "020 4652 6510",
   phoneHref: "tel:02046526510",
-  email: "info@asbestosabatementlondon.co.uk",
+  email: "info@londonasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementlondon.co.uk",
+  domain: "londonasbestosabatement.co.uk",
 
   theme: {
     primary: "#1C1C1C",

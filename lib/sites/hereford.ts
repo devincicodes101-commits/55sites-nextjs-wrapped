@@ -46,9 +46,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01432 805286",
   phoneHref: "tel:01432805286",
-  email: "info@asbestosabatementhereford.co.uk",
+  email: "info@herefordasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementhereford.co.uk",
+  domain: "herefordasbestosabatement.co.uk",
 
   theme: {
     primary: "#7A1C3B",

@@ -46,9 +46,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01228 479301",
   phoneHref: "tel:01228479301",
-  email: "info@asbestosabatementcarlisle.co.uk",
+  email: "info@carlisleasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementcarlisle.co.uk",
+  domain: "carlisleasbestosabatement.co.uk",
 
   theme: {
     primary: "#374151",

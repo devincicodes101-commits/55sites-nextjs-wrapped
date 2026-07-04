@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0151 317 3041",
   phoneHref: "tel:01513173041",
-  email: "info@asbestosabatementliverpool.co.uk",
+  email: "info@liverpoolasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementliverpool.co.uk",
+  domain: "liverpoolasbestosabatement.co.uk",
 
   theme: {
     primary: "#BE0000",

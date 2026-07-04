@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0114 478 2530",
   phoneHref: "tel:01144782530",
-  email: "info@asbestosabatementsheffield.co.uk",
+  email: "info@sheffieldasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementsheffield.co.uk",
+  domain: "sheffieldasbestosabatement.co.uk",
 
   theme: {
     primary: "#1F2937",

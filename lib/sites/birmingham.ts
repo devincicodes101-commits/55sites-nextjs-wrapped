@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0121 816 1979",
   phoneHref: "tel:01218161979",
-  email: "info@asbestosabatementbirmingham.co.uk",
+  email: "info@birminghamasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementbirmingham.co.uk",
+  domain: "birminghamasbestosabatement.co.uk",
 
   theme: {
     primary: "#1A3A5C",

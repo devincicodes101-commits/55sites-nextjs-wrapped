@@ -59,9 +59,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01332 529665",
   phoneHref: "tel:01332529665",
-  email: "info@asbestosabatementderby.co.uk",
+  email: "info@derbyasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementderby.co.uk",
+  domain: "derbyasbestosabatement.co.uk",
 
   theme: {
     primary: "#166534",

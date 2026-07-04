@@ -50,9 +50,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0116 493 0058",
   phoneHref: "tel:01164930058",
-  email: "info@asbestosabatementleicester.co.uk",
+  email: "info@leicesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementleicester.co.uk",
+  domain: "leicesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#C2410C",

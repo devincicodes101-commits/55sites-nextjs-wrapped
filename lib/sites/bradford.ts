@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01274 015438",
   phoneHref: "tel:01274015438",
-  email: "info@asbestosabatementbradford.co.uk",
+  email: "info@bradfordasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementbradford.co.uk",
+  domain: "bradfordasbestosabatement.co.uk",
 
   theme: {
     primary: "#4A1573",

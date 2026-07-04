@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01702 967340",
   phoneHref: "tel:01702967340",
-  email: "info@asbestosabatementsouthend-on-sea.co.uk",
+  email: "info@southendonseaasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementsouthend-on-sea.co.uk",
+  domain: "southendonseaasbestosabatement.co.uk",
 
   theme: {
     primary: "#1E5FA8",

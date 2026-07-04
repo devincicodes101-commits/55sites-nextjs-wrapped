@@ -46,9 +46,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01244 667196",
   phoneHref: "tel:01244667196",
-  email: "info@asbestosabatementchester.co.uk",
+  email: "info@chesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementchester.co.uk",
+  domain: "chesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#991B1B",

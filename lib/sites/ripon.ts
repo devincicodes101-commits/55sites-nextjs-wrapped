@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01765 532347",
   phoneHref: "tel:01765532347",
-  email: "info@asbestosabatementripon.co.uk",
+  email: "info@riponasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementripon.co.uk",
+  domain: "riponasbestosabatement.co.uk",
 
   theme: {
     primary: "#5C7A99",

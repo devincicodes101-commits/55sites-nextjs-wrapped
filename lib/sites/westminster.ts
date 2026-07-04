@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "020 4652 6133",
   phoneHref: "tel:02046526133",
-  email: "info@asbestosabatementwestminster.co.uk",
+  email: "info@westminsterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementwestminster.co.uk",
+  domain: "westminsterasbestosabatement.co.uk",
 
   theme: {
     primary: "#1A237E",

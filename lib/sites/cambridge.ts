@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01223 912197",
   phoneHref: "tel:01223912197",
-  email: "info@asbestosabatementcambridge.co.uk",
+  email: "info@cambridgeasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementcambridge.co.uk",
+  domain: "cambridgeasbestosabatement.co.uk",
 
   theme: {
     primary: "#1E3A8A",

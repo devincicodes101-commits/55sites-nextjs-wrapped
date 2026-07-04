@@ -48,9 +48,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01245 945749",
   phoneHref: "tel:01245945749",
-  email: "info@asbestosabatementchelmsford.co.uk",
+  email: "info@chelmsfordasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementchelmsford.co.uk",
+  domain: "chelmsfordasbestosabatement.co.uk",
 
   theme: {
     primary: "#9D174D",

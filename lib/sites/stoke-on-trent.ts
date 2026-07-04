@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01782 288698",
   phoneHref: "tel:01782288698",
-  email: "info@asbestosabatementstoke-on-trent.co.uk",
+  email: "info@stokeontrentasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementstoke-on-trent.co.uk",
+  domain: "stokeontrentasbestosabatement.co.uk",
 
   theme: {
     primary: "#9A3412",

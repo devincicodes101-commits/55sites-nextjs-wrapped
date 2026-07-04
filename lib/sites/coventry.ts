@@ -78,9 +78,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "024 7601 3470",
   phoneHref: "tel:02476013470",
-  email: "info@asbestosabatementcoventry.co.uk",
+  email: "info@coventryasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementcoventry.co.uk",
+  domain: "coventryasbestosabatement.co.uk",
 
   theme: {
     primary: "#312E81",

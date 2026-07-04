@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01772 283878",
   phoneHref: "tel:01772283878",
-  email: "info@asbestosabatementpreston.co.uk",
+  email: "info@prestonasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementpreston.co.uk",
+  domain: "prestonasbestosabatement.co.uk",
 
   theme: {
     primary: "#9B1D42",

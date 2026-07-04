@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01865 638917",
   phoneHref: "tel:01865638917",
-  email: "info@asbestosabatementoxford.co.uk",
+  email: "info@oxfordasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementoxford.co.uk",
+  domain: "oxfordasbestosabatement.co.uk",
 
   theme: {
     primary: "#002147",

@@ -66,9 +66,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01353 885168",
   phoneHref: "tel:01353885168",
-  email: "info@asbestosabatementely.co.uk",
+  email: "info@elyasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementely.co.uk",
+  domain: "elyasbestosabatement.co.uk",
 
   theme: {
     primary: "#065F46",

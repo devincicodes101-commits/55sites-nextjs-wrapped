@@ -70,9 +70,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01302 202783",
   phoneHref: "tel:01302202783",
-  email: "info@asbestosabatementdoncaster.co.uk",
+  email: "info@doncasterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementdoncaster.co.uk",
+  domain: "doncasterasbestosabatement.co.uk",
 
   theme: {
     primary: "#1C3A4A",

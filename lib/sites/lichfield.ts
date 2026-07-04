@@ -72,9 +72,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01543 762735",
   phoneHref: "tel:01543762735",
-  email: "info@asbestosabatementlichfield.co.uk",
+  email: "info@lichfieldasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementlichfield.co.uk",
+  domain: "lichfieldasbestosabatement.co.uk",
 
   theme: {
     primary: "#4B3E6E",

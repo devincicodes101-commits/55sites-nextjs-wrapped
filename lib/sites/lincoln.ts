@@ -76,9 +76,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01522 302699",
   phoneHref: "tel:01522302699",
-  email: "info@asbestosabatementlincoln.co.uk",
+  email: "info@lincolnasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementlincoln.co.uk",
+  domain: "lincolnasbestosabatement.co.uk",
 
   theme: {
     primary: "#5C4A1E",

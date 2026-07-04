@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01227 203937",
   phoneHref: "tel:01227203937",
-  email: "info@asbestosabatementcanterbury.co.uk",
+  email: "info@canterburyasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementcanterbury.co.uk",
+  domain: "canterburyasbestosabatement.co.uk",
 
   theme: {
     primary: "#14532D",

@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01206 356128",
   phoneHref: "tel:01206356128",
-  email: "info@asbestosabatementcolchester.co.uk",
+  email: "info@colchesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementcolchester.co.uk",
+  domain: "colchesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#78350F",

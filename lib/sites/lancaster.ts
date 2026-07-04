@@ -46,9 +46,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01524 917901",
   phoneHref: "tel:01524917901",
-  email: "info@asbestosabatementlancaster.co.uk",
+  email: "info@lancasterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementlancaster.co.uk",
+  domain: "lancasterasbestosabatement.co.uk",
 
   theme: {
     primary: "#2D4E6E",

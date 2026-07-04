@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0117 463 2368",
   phoneHref: "tel:01174632368",
-  email: "info@asbestosabatementbristol.co.uk",
+  email: "info@bristolasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementbristol.co.uk",
+  domain: "bristolasbestosabatement.co.uk",
 
   theme: {
     primary: "#92400E",

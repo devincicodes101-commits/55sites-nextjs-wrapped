@@ -27,9 +27,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01727 326479",
   phoneHref: "tel:01727326479",
-  email: "info@asbestosabatementst-albans.co.uk",
+  email: "info@stalbansasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementst-albans.co.uk",
+  domain: "stalbansasbestosabatement.co.uk",
 
   theme: {
     primary: "#6B21A8",

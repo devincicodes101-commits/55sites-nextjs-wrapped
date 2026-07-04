@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01924 793802",
   phoneHref: "tel:01924793802",
-  email: "info@asbestosabatementwakefield.co.uk",
+  email: "info@wakefieldasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementwakefield.co.uk",
+  domain: "wakefieldasbestosabatement.co.uk",
 
   theme: {
     primary: "#0F5C5C",

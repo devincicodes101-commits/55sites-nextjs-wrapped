@@ -74,9 +74,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0113 519 0060",
   phoneHref: "tel:01135190060",
-  email: "info@asbestosabatementleeds.co.uk",
+  email: "info@leedsasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementleeds.co.uk",
+  domain: "leedsasbestosabatement.co.uk",
 
   theme: {
     primary: "#854D0E",

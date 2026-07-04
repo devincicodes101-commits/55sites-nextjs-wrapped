@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "023 9326 8803",
   phoneHref: "tel:02393268803",
-  email: "info@asbestosabatementsouthampton.co.uk",
+  email: "info@southamptonasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementsouthampton.co.uk",
+  domain: "southamptonasbestosabatement.co.uk",
 
   theme: {
     primary: "#0D5F6B",

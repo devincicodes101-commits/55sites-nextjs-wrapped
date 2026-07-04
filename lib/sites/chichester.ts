@@ -26,9 +26,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01243 215408",
   phoneHref: "tel:01243215408",
-  email: "info@asbestosabatementchichester.co.uk",
+  email: "info@chichesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementchichester.co.uk",
+  domain: "chichesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#5B21B6",

@@ -77,9 +77,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01452 920738",
   phoneHref: "tel:01452920738",
-  email: "info@asbestosabatementgloucester.co.uk",
+  email: "info@gloucesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementgloucester.co.uk",
+  domain: "gloucesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#1A4731",

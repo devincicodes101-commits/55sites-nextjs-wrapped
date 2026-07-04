@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01722 444614",
   phoneHref: "tel:01722444614",
-  email: "info@asbestosabatementsalisbury.co.uk",
+  email: "info@salisburyasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementsalisbury.co.uk",
+  domain: "salisburyasbestosabatement.co.uk",
 
   theme: {
     primary: "#6B5D4F",

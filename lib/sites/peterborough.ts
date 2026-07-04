@@ -27,9 +27,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01733 964479",
   phoneHref: "tel:01733964479",
-  email: "info@asbestosabatementpeterborough.co.uk",
+  email: "info@peterboroughasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementpeterborough.co.uk",
+  domain: "peterboroughasbestosabatement.co.uk",
 
   theme: {
     primary: "#6B5A1E",

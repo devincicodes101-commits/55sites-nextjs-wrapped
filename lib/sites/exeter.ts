@@ -46,9 +46,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01392 542118",
   phoneHref: "tel:01392542118",
-  email: "info@asbestosabatementexeter.co.uk",
+  email: "info@exeterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementexeter.co.uk",
+  domain: "exeterasbestosabatement.co.uk",
 
   theme: {
     primary: "#7C1D1D",

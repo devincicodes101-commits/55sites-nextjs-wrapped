@@ -24,9 +24,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01908 024027",
   phoneHref: "tel:01908024027",
-  email: "info@asbestosabatementmilton-keynes.co.uk",
+  email: "info@miltonkkeynesasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementmilton-keynes.co.uk",
+  domain: "miltonkkeynesasbestosabatement.co.uk",
 
   theme: {
     primary: "#0F766E",

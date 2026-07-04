@@ -28,9 +28,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01872 303987",
   phoneHref: "tel:01872303987",
-  email: "info@asbestosabatementtruro.co.uk",
+  email: "info@truroasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementtruro.co.uk",
+  domain: "truroasbestosabatement.co.uk",
 
   theme: {
     primary: "#2F5233",

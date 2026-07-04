@@ -27,9 +27,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01904 935431",
   phoneHref: "tel:01904935431",
-  email: "info@asbestosabatementyork.co.uk",
+  email: "info@yorkasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementyork.co.uk",
+  domain: "yorkasbestosabatement.co.uk",
 
   theme: {
     primary: "#3730A3",

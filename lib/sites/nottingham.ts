@@ -29,9 +29,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "0115 647 4867",
   phoneHref: "tel:01156474867",
-  email: "info@asbestosabatementnottingham.co.uk",
+  email: "info@nottinghamasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementnottingham.co.uk",
+  domain: "nottinghamasbestosabatement.co.uk",
 
   theme: {
     primary: "#0E6B45",

@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "023 9433 0793",
   phoneHref: "tel:02394330793",
-  email: "info@asbestosabatementportsmouth.co.uk",
+  email: "info@portsmouthasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementportsmouth.co.uk",
+  domain: "portsmouthasbestosabatement.co.uk",
 
   theme: {
     primary: "#1B4332",

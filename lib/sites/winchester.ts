@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01962 587253",
   phoneHref: "tel:01962587253",
-  email: "info@asbestosabatementwinchester.co.uk",
+  email: "info@winchesterasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementwinchester.co.uk",
+  domain: "winchesterasbestosabatement.co.uk",
 
   theme: {
     primary: "#2E1A47",

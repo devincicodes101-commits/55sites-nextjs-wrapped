@@ -25,9 +25,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01902 953216",
   phoneHref: "tel:01902953216",
-  email: "info@asbestosabatementwolverhampton.co.uk",
+  email: "info@wolverhamptonasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementwolverhampton.co.uk",
+  domain: "wolverhamptonasbestosabatement.co.uk",
 
   theme: {
     primary: "#5C2E0A",

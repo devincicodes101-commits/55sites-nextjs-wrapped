@@ -23,9 +23,9 @@ const config: SiteConfig = {
   country: "GB",
   phoneDisplay: "01752 741262",
   phoneHref: "tel:01752741262",
-  email: "info@asbestosabatementplymouth.co.uk",
+  email: "info@plymouthasbestosabatement.co.uk",
   foundedYear: 1984,
-  domain: "asbestosabatementplymouth.co.uk",
+  domain: "plymouthasbestosabatement.co.uk",
 
   theme: {
     primary: "#0F3460",
