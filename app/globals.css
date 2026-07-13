@@ -141,6 +141,11 @@ a {
   background-size: 16px;
   padding-right: 36px;
 }
+/* Native dropdown list: always dark text on white so dark hero forms stay readable */
+.fg select option {
+  background: #ffffff;
+  color: #111111;
+}
 .fsub {
   width: 100%;
   padding: 14px;

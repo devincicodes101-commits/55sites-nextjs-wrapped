@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { firstName, lastName, name, phone, email, service, message } = body as Record<
+  const { firstName, lastName, name, phone, email, service, details, message } = body as Record<
     string,
     unknown
   >;
@@ -22,14 +22,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Phone is required" }, { status: 400 });
   }
 
+  if (!service || typeof service !== "string" || !service.trim()) {
+    return NextResponse.json({ error: "Service is required" }, { status: 400 });
+  }
+
   const { city, domain } = getSiteConfig();
 
   const first_name = (typeof firstName === "string" ? firstName : null) ??
     (typeof name === "string" ? name : null);
   const last_name = typeof lastName === "string" ? lastName : null;
   const emailValue = typeof email === "string" ? email : null;
-  const serviceValue = typeof service === "string" ? service : null;
-  const messageValue = typeof message === "string" ? message : null;
+  const serviceValue = service.trim();
+  const detailsValue =
+    (typeof details === "string" ? details : null) ??
+    (typeof message === "string" ? message : null);
 
   const useBase44 = isBase44Configured();
   const useSupabase = isSupabaseConfigured();
@@ -47,7 +53,7 @@ export async function POST(request: Request) {
         phone,
         email: emailValue,
         service: serviceValue,
-        message: messageValue,
+        details: detailsValue,
         city,
         domain,
       });
@@ -63,7 +69,8 @@ export async function POST(request: Request) {
         phone,
         email: emailValue,
         service: serviceValue,
-        message: messageValue,
+        details: detailsValue,
+        message: detailsValue,
       });
 
       if (error) {

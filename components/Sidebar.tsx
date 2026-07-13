@@ -39,7 +39,10 @@ export default function Sidebar({ activeSlug }: { activeSlug?: string }) {
           {phoneDisplay}
         </a>
         <div className="sb-form">
-          <ContactForm variant="compact" />
+          <ContactForm
+            variant="compact"
+            serviceOptions={[...services.map((s) => s.title), "Emergency Response", "General Enquiry"]}
+          />
         </div>
       </div>
     </div>

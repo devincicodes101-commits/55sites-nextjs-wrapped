@@ -2,12 +2,50 @@
 
 import { FormEvent, useState } from "react";
 
+/** Fallback if a parent forgets to pass city services. */
+const DEFAULT_SERVICE_OPTIONS = [
+  "Asbestos Surveys",
+  "Asbestos Testing",
+  "Licensed Asbestos Removal",
+  "Non-Licensed Asbestos Removal",
+  "Garage Roof Removal",
+  "Asbestos Disposal",
+  "Emergency Response",
+  "General Enquiry",
+];
+
 export interface ContactFormProps {
   variant?: "full" | "compact" | "inline";
   serviceOptions?: string[];
   successTitle?: string;
   successBody?: string;
   submitLabel?: string;
+}
+
+function ServiceSelect({
+  options,
+  required = true,
+  light = false,
+}: {
+  options: string[];
+  required?: boolean;
+  light?: boolean;
+}) {
+  return (
+    <div className="fg">
+      <label>{light ? "Service" : "Service *"}</label>
+      <select name="service" defaultValue="" required={required}>
+        <option value="" disabled>
+          Select a service...
+        </option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 export default function ContactForm({
@@ -20,6 +58,9 @@ export default function ContactForm({
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const options =
+    serviceOptions && serviceOptions.length > 0 ? serviceOptions : DEFAULT_SERVICE_OPTIONS;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,9 +104,10 @@ export default function ContactForm({
           <label>Phone</label>
           <input type="tel" name="phone" placeholder="07XXX XXXXXX" required />
         </div>
+        <ServiceSelect options={options} light />
         <div className="fg">
           <label>Message</label>
-          <textarea name="message" rows={2} placeholder="Your requirements..." />
+          <textarea name="details" rows={2} placeholder="Your requirements..." />
         </div>
         {error && <p style={{ color: "#c0392b", fontSize: ".85rem", marginTop: 6 }}>{error}</p>}
         <button type="submit" className="fsub" style={{ marginTop: 8, background: "var(--s)" }} disabled={submitting}>
@@ -86,15 +128,7 @@ export default function ContactForm({
           <label>Phone</label>
           <input type="tel" name="phone" placeholder="07XXX XXXXXX" required />
         </div>
-        <div className="fg">
-          <label>Service</label>
-          <select name="service" defaultValue="">
-            <option value="">Select...</option>
-            {(serviceOptions ?? []).map((opt) => (
-              <option key={opt}>{opt}</option>
-            ))}
-          </select>
-        </div>
+        <ServiceSelect options={options} light />
         <button type="submit" className="lead-row-btn" disabled={submitting}>
           {submitting ? "Sending…" : "Get Quote →"}
         </button>
@@ -125,20 +159,10 @@ export default function ContactForm({
         <label>Email *</label>
         <input type="email" name="email" placeholder="john@example.com" required />
       </div>
-      {serviceOptions && (
-        <div className="fg">
-          <label>Service</label>
-          <select name="service">
-            <option value="">Select...</option>
-            {serviceOptions.map((opt) => (
-              <option key={opt}>{opt}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      <ServiceSelect options={options} />
       <div className="fg">
         <label>Details</label>
-        <textarea name="message" rows={3} placeholder="Brief description of your project..." />
+        <textarea name="details" rows={3} placeholder="Brief description of your project..." />
       </div>
       {error && <p style={{ color: "#c0392b", fontSize: ".85rem", marginBottom: 8 }}>{error}</p>}
       <button type="submit" className="fsub" disabled={submitting}>

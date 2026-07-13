@@ -6,7 +6,7 @@ export type QuoteLeadPayload = {
   phone: string;
   email: string | null;
   service: string | null;
-  message: string | null;
+  details: string | null;
   city: string;
   domain: string;
 };
@@ -51,7 +51,7 @@ export async function createQuoteInBase44(payload: QuoteLeadPayload) {
     phone: payload.phone,
     email: payload.email,
     service: payload.service,
-    message: payload.message,
+    details: payload.details,
     city: payload.city,
     domain: payload.domain,
     source: "website",

@@ -80,13 +80,14 @@ h4,
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.15);
   color: #fff;
+  color-scheme: dark;
 }
 .lead-row .fg input::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
 .lead-row .fg select option {
-  background: var(--d);
-  color: #fff;
+  background: #fff;
+  color: #111;
 }
 .lead-row-btn {
   background: #fff;
@@ -266,6 +267,12 @@ h4,
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.2);
   color: #fff;
+  color-scheme: dark;
+}
+.hero-right .fg select option,
+.hero-right .fg select optgroup {
+  background: #fff;
+  color: #111;
 }
 .hero-right .fg input::placeholder,
 .hero-right .fg textarea::placeholder {
@@ -570,6 +577,11 @@ body[data-style="card"] .lead-card .fg textarea {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.25);
   color: #fff;
+  color-scheme: dark;
+}
+body[data-style="card"] .lead-card .fg select option {
+  background: #fff;
+  color: #111;
 }
 body[data-style="card"] .lead-card .fg input::placeholder,
 body[data-style="card"] .lead-card .fg textarea::placeholder {

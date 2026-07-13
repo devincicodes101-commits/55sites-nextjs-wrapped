@@ -9,7 +9,11 @@ export default function HomeHero() {
   const { hero, phoneHref, phoneDisplay, designStyle = "classic", services, region } =
     getSiteConfig();
   const style: DesignStyle = designStyle;
-  const serviceOptions = services.map((s) => s.title);
+  const serviceOptions = [
+    ...services.map((s) => s.title),
+    "Emergency Response",
+    "General Enquiry",
+  ];
   const trustFeatures = hero.trustPills.map((pill, i) => ({
     icon: FEATURE_ICONS[i % FEATURE_ICONS.length],
     text: pill.replace(/^[✓✅]\s*/, ""),
@@ -221,7 +225,7 @@ export default function HomeHero() {
                   ? "2-hour response guaranteed"
                   : "We'll respond within 2 hours"}
             </p>
-            <ContactForm />
+            <ContactForm serviceOptions={serviceOptions} />
           </div>
         </div>
       </div>
