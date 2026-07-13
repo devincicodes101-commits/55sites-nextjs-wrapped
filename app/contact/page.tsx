@@ -27,7 +27,7 @@ export default function ContactPage() {
 
       <div className="section">
         <div className="container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" }}>
+          <div className="contact-section-grid">
             <div>
               <div className="tag">Get in Touch</div>
               <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--d)", marginBottom: 12, letterSpacing: "-.01em" }}>
@@ -62,7 +62,7 @@ export default function ContactPage() {
               </div>
             </div>
 
-            <div style={{ background: "#fff", border: "1.5px solid #eee", borderRadius: 16, padding: 36, boxShadow: "0 4px 24px rgba(0,0,0,.04)" }}>
+            <div className="contact-form-card">
               <h3 style={{ fontSize: "1.2rem", color: "var(--d)", marginBottom: 4 }}>Send Us a Message</h3>
               <p style={{ fontSize: ".82rem", color: "#888", marginBottom: 20 }}>Response within 2 business hours.</p>
               <ContactForm

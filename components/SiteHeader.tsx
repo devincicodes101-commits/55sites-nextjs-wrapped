@@ -6,11 +6,13 @@ import type { SiteConfig } from "@/lib/types";
 
 export default function SiteHeader({ siteConfig }: { siteConfig: SiteConfig }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { businessName, logoLetter, city, region, phoneDisplay, phoneHref, nav, services, areas } =
+  const { businessName, logoLetter, city, region, phoneDisplay, phoneHref, nav, services, areas, designStyle = "classic" } =
     siteConfig;
+  const showNavTop = designStyle === "classic";
 
   return (
     <>
+      {showNavTop && (
       <div className="nav-top">
         <div className="container">
           <div className="nav-top-inner">
@@ -26,8 +28,9 @@ export default function SiteHeader({ siteConfig }: { siteConfig: SiteConfig }) {
           </div>
         </div>
       </div>
+      )}
 
-      <nav className="nav">
+      <nav className={`nav nav-${designStyle}`}>
         <div className="container">
           <div className="nav-inner">
             <Link

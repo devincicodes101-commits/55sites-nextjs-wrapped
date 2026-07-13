@@ -18,6 +18,9 @@ per-site builds or deployments.
 - `lib/sites/bath.ts` - the working example/seed config, a faithful port of
   asbestosabatementbath.co.uk (real copy, real phone number, real theme
   colours) so you can `npm run dev` and see a complete example.
+- `lib/design-styles.ts` - maps each city to one of six HTML layout families
+  (classic, bold, sidebar, card, banner, clean). `getSiteConfig()` attaches
+  `designStyle`; the UI switches via `data-style` on `<body>`.
 - `lib/sites/registry.ts` - maps each live **domain** to its config object,
   and exports `getSiteConfig()`, which reads the incoming request's `Host`
   header (via `next/headers`) and returns the right config. Every page and
@@ -65,9 +68,8 @@ per-site builds or deployments.
 - The original generated a near-duplicate "How Much Does It Cost?" page
   alongside the main pricing page purely for SEO keyword variants. The
   template keeps one canonical `/services/cost` page instead.
-- Forms are client-side only (mirrors the original's inline JS behaviour of
-  showing a success message with no real backend). Wire `ContactForm.tsx`
-  up to a real endpoint before going to production.
+- Quote forms POST to `/api/contact`, which creates a record in Base44 CRM
+  (when `BASE44_APP_ID` is set) and optionally backs up to Supabase.
 - 12 of the 13 seeded services have solid, genuinely useful template copy
   ported/adapted from the original's real pattern; only `survey` and `cost`
   are verbatim transcriptions of the original Bath copy. Review before

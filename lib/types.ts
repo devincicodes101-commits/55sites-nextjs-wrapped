@@ -87,6 +87,9 @@ export interface SeoKeywordColumn {
   items: string[];
 }
 
+/** Matches the six Base44 / static-HTML layout families. */
+export type DesignStyle = "classic" | "bold" | "sidebar" | "card" | "banner" | "clean";
+
 export interface SiteConfig {
   businessName: string;
   logoLetter: string;
@@ -98,6 +101,9 @@ export interface SiteConfig {
   email: string;
   foundedYear: number;
   domain: string;
+
+  /** Layout family from the original HTML. Always set by getSiteConfig(). */
+  designStyle?: DesignStyle;
 
   theme: {
     primary: string;

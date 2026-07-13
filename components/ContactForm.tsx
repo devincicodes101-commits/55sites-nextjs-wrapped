@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 
 export interface ContactFormProps {
-  variant?: "full" | "compact";
+  variant?: "full" | "compact" | "inline";
   serviceOptions?: string[];
   successTitle?: string;
   successBody?: string;
@@ -71,6 +71,36 @@ export default function ContactForm({
         <button type="submit" className="fsub" style={{ marginTop: 8, background: "var(--s)" }} disabled={submitting}>
           {submitting ? "Sending…" : "Request Callback →"}
         </button>
+      </form>
+    );
+  }
+
+  if (variant === "inline") {
+    return (
+      <form className="lead-row" onSubmit={handleSubmit}>
+        <div className="fg">
+          <label>Your Name</label>
+          <input type="text" name="name" placeholder="Full name" required />
+        </div>
+        <div className="fg">
+          <label>Phone</label>
+          <input type="tel" name="phone" placeholder="07XXX XXXXXX" required />
+        </div>
+        <div className="fg">
+          <label>Service</label>
+          <select name="service" defaultValue="">
+            <option value="">Select...</option>
+            {(serviceOptions ?? []).map((opt) => (
+              <option key={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+        <button type="submit" className="lead-row-btn" disabled={submitting}>
+          {submitting ? "Sending…" : "Get Quote →"}
+        </button>
+        {error && (
+          <p style={{ color: "#ffb4b4", fontSize: ".85rem", gridColumn: "1 / -1", margin: 0 }}>{error}</p>
+        )}
       </form>
     );
   }

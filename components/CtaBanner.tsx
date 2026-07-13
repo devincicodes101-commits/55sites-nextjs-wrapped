@@ -9,7 +9,7 @@ export default function CtaBanner({
   subtitle: string;
   variant?: "banner" | "strip";
 }) {
-  const { phoneHref, phoneDisplay } = getSiteConfig();
+  const { phoneHref, phoneDisplay, designStyle = "classic" } = getSiteConfig();
 
   if (variant === "strip") {
     return (
@@ -32,8 +32,8 @@ export default function CtaBanner({
 
   return (
     <div className="section-sm">
-      <div className="container">
-        <div className="cta-banner">
+      <div className={designStyle === "card" || designStyle === "clean" ? undefined : "container"}>
+        <div className={`cta-banner cta-${designStyle}`}>
           <h2>{title}</h2>
           <p>{subtitle}</p>
           <div className="cta-btns">

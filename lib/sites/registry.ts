@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { getDesignStyleForCity } from "../design-styles";
 import type { SiteConfig } from "../types";
 import bath from "./bath";
 import birmingham from "./birmingham";
@@ -127,7 +128,11 @@ function normalizeHost(host: string): string {
 
 export function getSiteConfig(): SiteConfig {
   const host = headers().get("host") ?? "";
-  return registry[normalizeHost(host)] ?? DEFAULT_CONFIG;
+  const base = registry[normalizeHost(host)] ?? DEFAULT_CONFIG;
+  return {
+    ...base,
+    designStyle: getDesignStyleForCity(base.city),
+  };
 }
 
 export default registry;

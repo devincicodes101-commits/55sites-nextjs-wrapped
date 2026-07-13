@@ -23,31 +23,16 @@ export default function HomePage() {
       <ProcessSteps steps={process} city={city} />
       <Testimonials items={testimonials} city={city} />
 
-      <div style={{ background: "#f9fafb", borderTop: "1px solid #eee", padding: "40px 0" }}>
+      <div className="seo-keywords">
         <div className="container">
-          <h2 style={{ fontSize: "1rem", fontWeight: 700, color: "#444", marginBottom: 16 }}>
-            {seoKeywordBlock.title}
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+          <h2 className="seo-keywords-title">{seoKeywordBlock.title}</h2>
+          <div className="seo-keywords-grid">
             {seoKeywordBlock.columns.map((col) => (
               <div key={col.heading}>
-                <h3
-                  style={{
-                    fontSize: ".82rem",
-                    fontWeight: 700,
-                    color: "#333",
-                    marginBottom: 8,
-                    textTransform: "uppercase",
-                    letterSpacing: ".04em",
-                  }}
-                >
-                  {col.heading}
-                </h3>
-                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                <h3 className="seo-keywords-heading">{col.heading}</h3>
+                <ul className="seo-keywords-list">
                   {col.items.map((item) => (
-                    <li key={item} style={{ fontSize: ".8rem", color: "#666", padding: "3px 0", borderBottom: "1px solid #eee" }}>
-                      → {item}
-                    </li>
+                    <li key={item}>→ {item}</li>
                   ))}
                 </ul>
               </div>
