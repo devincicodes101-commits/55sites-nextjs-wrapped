@@ -75,6 +75,19 @@ per-site builds or deployments.
   are verbatim transcriptions of the original Bath copy. Review before
   reusing for a paying client site.
 
+## Survey → automatic quote
+
+End-to-end flow on the Contact page when `SURVEY_QUOTE_PILOT_ENABLED=true` (all domains by default):
+
+1. Visitor uploads an asbestos survey (PDF/image) + contact details
+2. Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash`) OCR/reads the report and builds a formal GBP quote using that site’s city, branding, and pricing
+3. Quote is emailed via Resend (if `RESEND_API_KEY` + `QUOTE_FROM_EMAIL` are set)
+4. Lead is created in Base44 CRM (`BASE44_ENTITY`, default `Lead`) with quote JSON, total, survey summary, and status `quoted`
+
+`SURVEY_QUOTE_PILOT_CITIES=*` (or leave empty) enables every domain. Restrict with a list if needed: `SURVEY_QUOTE_PILOT_CITIES=Bath,Birmingham`
+
+Suggested Lead fields in Base44: `first_name`, `last_name`, `phone`, `email`, `service`, `details`, `city`, `domain`, `source`, `status`, `quote_ref`, `quote_total_gbp`, `quote_json`, `survey_summary`, `survey_file_name`, `quote_emailed`.
+
 ## Local dev
 
 ```bash

@@ -1,0 +1,110 @@
+import type { GeneratedQuote } from "./gemini-quote";
+
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY && process.env.QUOTE_FROM_EMAIL);
+}
+
+function formatMoney(n: number) {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+}
+
+export function buildQuoteEmailHtml(input: {
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  quote: GeneratedQuote;
+  quoteRef: string;
+}): string {
+  const { quote } = input;
+  const rows = quote.line_items
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding:8px;border-bottom:1px solid #eee">${item.description}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${item.quantity} ${item.unit}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${formatMoney(item.unit_price_gbp)}</td>
+        <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${formatMoney(item.total_gbp)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  return `
+  <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#222">
+    <h1 style="font-size:22px;margin:0 0 8px">${input.businessName}</h1>
+    <p style="margin:0 0 24px;color:#666">Formal quotation for asbestos works in ${input.city}</p>
+    <p>Dear ${input.customerName},</p>
+    <p>Thank you for uploading your survey report. We have reviewed the document and prepared the following fixed-price quotation.</p>
+    <p><strong>Quote reference:</strong> ${input.quoteRef}<br/>
+    <strong>Valid for:</strong> ${quote.validity_days} days</p>
+    ${quote.property_address ? `<p><strong>Property:</strong> ${quote.property_address}</p>` : ""}
+    <h2 style="font-size:16px;margin:24px 0 8px">Survey summary</h2>
+    <p style="white-space:pre-wrap">${quote.survey_summary}</p>
+    <h2 style="font-size:16px;margin:24px 0 8px">Recommended works</h2>
+    <ul>${quote.recommended_works.map((w) => `<li>${w}</li>`).join("")}</ul>
+    <h2 style="font-size:16px;margin:24px 0 8px">Price breakdown</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:8px;border-bottom:2px solid #ddd">Description</th>
+          <th style="text-align:center;padding:8px;border-bottom:2px solid #ddd">Qty</th>
+          <th style="text-align:right;padding:8px;border-bottom:2px solid #ddd">Unit</th>
+          <th style="text-align:right;padding:8px;border-bottom:2px solid #ddd">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="text-align:right;margin:16px 0 4px">Subtotal: <strong>${formatMoney(quote.subtotal_gbp)}</strong></p>
+    <p style="text-align:right;margin:0 0 4px">VAT (20%): <strong>${formatMoney(quote.vat_gbp)}</strong></p>
+    <p style="text-align:right;margin:0 0 24px;font-size:18px">Total: <strong>${formatMoney(quote.total_gbp)}</strong></p>
+    <h2 style="font-size:16px;margin:24px 0 8px">Assumptions</h2>
+    <ul>${quote.assumptions.map((a) => `<li>${a}</li>`).join("")}</ul>
+    <h2 style="font-size:16px;margin:24px 0 8px">Exclusions</h2>
+    <ul>${quote.exclusions.map((e) => `<li>${e}</li>`).join("")}</ul>
+    <p style="margin-top:24px">To accept this quote or arrange a site visit, call us on <strong>${input.phoneDisplay}</strong> or reply to this email.</p>
+    <p style="color:#888;font-size:12px;margin-top:32px">This quotation was generated from your uploaded survey report and will be reviewed by our ${input.city} team before works commence.</p>
+  </div>`;
+}
+
+/**
+ * Sends the formal quote to the customer via Resend.
+ * Returns { sent: false } when email env is not configured (CRM still receives the lead).
+ */
+export async function sendQuoteEmail(input: {
+  to: string;
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  quote: GeneratedQuote;
+  quoteRef: string;
+}): Promise<{ sent: boolean; id?: string; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "Email not configured (RESEND_API_KEY / QUOTE_FROM_EMAIL)" };
+  }
+
+  const from = process.env.QUOTE_FROM_EMAIL!;
+  const apiKey = process.env.RESEND_API_KEY!;
+  const html = buildQuoteEmailHtml(input);
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [input.to],
+      subject: `${input.businessName} — Asbestos Works Quotation ${input.quoteRef}`,
+      html,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+  if (!res.ok) {
+    return { sent: false, error: data.message || `Resend error ${res.status}` };
+  }
+
+  return { sent: true, id: data.id };
+}

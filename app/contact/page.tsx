@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import PageHero from "@/components/PageHero";
 import ContactForm from "@/components/ContactForm";
+import SurveyQuoteForm from "@/components/SurveyQuoteForm";
 import FaqAccordion from "@/components/FaqAccordion";
+import { isSurveyQuotePilotEnabled } from "@/lib/pilot";
 import { getSiteConfig } from "@/lib/sites/registry";
 
 export function generateMetadata(): Metadata {
@@ -12,9 +14,11 @@ export function generateMetadata(): Metadata {
 }
 
 export default function ContactPage() {
-  const { businessName, city, region, phoneHref, phoneDisplay, email, hero, services, faqs } = getSiteConfig();
+  const { businessName, city, region, phoneHref, phoneDisplay, email, hero, services, faqs } =
+    getSiteConfig();
 
   const serviceOptions = [...services.map((s) => s.title), "Emergency Response", "General Enquiry"];
+  const showSurveyPilot = isSurveyQuotePilotEnabled(city);
 
   return (
     <div className="page active">
@@ -25,17 +29,50 @@ export default function ContactPage() {
         breadcrumb={[{ label: "Home", href: "/" }, { label: `Contact ${businessName}` }]}
       />
 
+      {showSurveyPilot && (
+        <div className="section survey-quote-section">
+          <div className="container survey-quote-layout">
+            <div className="survey-quote-intro">
+              <div className="tag">Pilot — Instant Survey Quote</div>
+              <h2>Upload your asbestos survey — get an automatic quote</h2>
+              <p>
+                Upload a site survey or asbestos report. Our AI reads the document, builds a formal
+                fixed-price quote, emails it to you, and creates a sales lead in our CRM for follow-up.
+              </p>
+              <ol className="survey-quote-steps">
+                <li>Fill in your contact details and upload the survey PDF/image</li>
+                <li>We extract the job scope with Gemini and generate a formal quote</li>
+                <li>The quote is emailed to you and logged in our CRM for a sales advisor</li>
+              </ol>
+            </div>
+            <div className="contact-form-card survey-quote-card">
+              <h3>Survey report → Instant quote</h3>
+              <p className="survey-quote-card-sub">Typically ready in under a minute.</p>
+              <SurveyQuoteForm serviceOptions={serviceOptions} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="section">
         <div className="container">
           <div className="contact-section-grid">
             <div>
               <div className="tag">Get in Touch</div>
-              <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--d)", marginBottom: 12, letterSpacing: "-.01em" }}>
+              <h2
+                style={{
+                  fontSize: "1.9rem",
+                  fontWeight: 800,
+                  color: "var(--d)",
+                  marginBottom: 12,
+                  letterSpacing: "-.01em",
+                }}
+              >
                 We&apos;re Here to Help
               </h2>
               <p style={{ color: "#666", marginBottom: 28, lineHeight: 1.75 }}>
-                Whether you need urgent advice, a survey quote, or emergency removal across {city} or {region},
-                our friendly team is ready to assist.
+                Whether you need urgent advice, a survey quote, or emergency removal across {city} or{" "}
+                {region}, our friendly team is ready to assist.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 24 }}>
                 <ContactRow icon="📞" label="Phone">
@@ -64,7 +101,9 @@ export default function ContactPage() {
 
             <div className="contact-form-card">
               <h3 style={{ fontSize: "1.2rem", color: "var(--d)", marginBottom: 4 }}>Send Us a Message</h3>
-              <p style={{ fontSize: ".82rem", color: "#888", marginBottom: 20 }}>Response within 2 business hours.</p>
+              <p style={{ fontSize: ".82rem", color: "#888", marginBottom: 20 }}>
+                Response within 2 business hours.
+              </p>
               <ContactForm
                 serviceOptions={serviceOptions}
                 successTitle="Message Sent!"
@@ -80,7 +119,9 @@ export default function ContactPage() {
         <div className="container-sm">
           <div style={{ textAlign: "center", marginBottom: 36 }}>
             <div className="tag">FAQs</div>
-            <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--d)" }}>Frequently Asked Questions</h2>
+            <h2 style={{ fontSize: "1.9rem", fontWeight: 800, color: "var(--d)" }}>
+              Frequently Asked Questions
+            </h2>
           </div>
           <FaqAccordion faqs={faqs} />
         </div>

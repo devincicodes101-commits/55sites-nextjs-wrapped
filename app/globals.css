@@ -1477,3 +1477,116 @@ a {
     font-size: 1.4rem;
   }
 }
+
+/* Survey → quote pilot */
+.survey-quote-section {
+  background: var(--bg);
+  border-bottom: 1px solid #eee;
+}
+.survey-quote-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: start;
+}
+.survey-quote-intro h2 {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--d);
+  margin: 10px 0 14px;
+  letter-spacing: -0.02em;
+}
+.survey-quote-intro > p {
+  color: #555;
+  line-height: 1.75;
+  margin-bottom: 18px;
+}
+.survey-quote-steps {
+  margin: 0;
+  padding-left: 18px;
+  color: #444;
+  line-height: 1.8;
+}
+.survey-quote-card h3 {
+  font-size: 1.2rem;
+  color: var(--d);
+  margin-bottom: 4px;
+}
+.survey-quote-card-sub {
+  font-size: 0.82rem;
+  color: #888;
+  margin-bottom: 20px;
+}
+.survey-file-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 88px;
+  border: 1.5px dashed #ccc;
+  border-radius: 10px;
+  background: #fafafa;
+  cursor: pointer;
+  padding: 16px;
+  text-align: center;
+  color: #555;
+  font-size: 0.9rem;
+  position: relative;
+}
+.survey-file-drop input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.survey-quote-error {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.survey-quote-warn {
+  color: #a15c00;
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+.survey-quote-success h3 {
+  color: var(--d);
+  margin-bottom: 8px;
+}
+.survey-quote-summary {
+  color: #555;
+  line-height: 1.65;
+  margin: 14px 0;
+  font-size: 0.92rem;
+}
+.survey-quote-table-wrap {
+  overflow-x: auto;
+  margin: 12px 0;
+}
+.survey-quote-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.survey-quote-table th,
+.survey-quote-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+.survey-quote-totals {
+  text-align: right;
+  font-size: 0.92rem;
+  margin-top: 8px;
+}
+.survey-quote-valid {
+  color: #777;
+  font-size: 0.82rem;
+  margin-top: 8px;
+}
+
+@media (max-width: 1024px) {
+  .survey-quote-layout {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
