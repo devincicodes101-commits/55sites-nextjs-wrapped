@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { catalogToPriceItems } from "../catalog-pricing";
 import { getDesignStyleForCity } from "../design-styles";
 import type { SiteConfig } from "../types";
 import bath from "./bath";
@@ -129,8 +130,24 @@ function normalizeHost(host: string): string {
 export function getSiteConfig(): SiteConfig {
   const host = headers().get("host") ?? "";
   const base = registry[normalizeHost(host)] ?? DEFAULT_CONFIG;
+  const catalogPricing = catalogToPriceItems();
+
+  // Inject the shared Service Catalog into Transparent Pricing pages
+  // so every domain shows the same detailed rates (not generic from/to copy).
+  const services = base.services.map((service) => {
+    if (service.slug !== "cost") return service;
+    return {
+      ...service,
+      content: service.content.map((block) =>
+        block.type === "priceGrid" ? { type: "priceGrid" as const, items: catalogPricing } : block,
+      ),
+    };
+  });
+
   return {
     ...base,
+    services,
+    pricing: catalogPricing,
     designStyle: getDesignStyleForCity(base.city),
   };
 }

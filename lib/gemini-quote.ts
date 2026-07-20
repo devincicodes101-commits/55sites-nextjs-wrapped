@@ -90,30 +90,47 @@ export async function generateQuoteFromSurvey(input: {
   city: string;
   region: string;
   businessName: string;
-  pricingHints: { label: string; price: string; note: string }[];
+  pricingHints: {
+    label: string;
+    price: string;
+    note: string;
+    unit_type?: string;
+    unit_price_gbp?: number;
+  }[];
 }): Promise<GeneratedQuote> {
   const ai = getClient();
   const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 
   const pricingText = input.pricingHints
-    .map((p) => `- ${p.label}: ${p.price} — ${p.note}`)
+    .map((p) => {
+      const rate =
+        "unit_price_gbp" in p && typeof p.unit_price_gbp === "number"
+          ? `£${p.unit_price_gbp} (${p.price})`
+          : p.price;
+      return `- ${p.label}: ${rate}\n  Scope/notes: ${p.note}`;
+    })
     .join("\n");
 
   const prompt = `You are a senior estimator for a UK HSE-licensed asbestos removal contractor (${input.businessName}) operating in ${input.city}, ${input.region}.
 
 A customer named ${input.customerName} uploaded a site survey / asbestos report. Read the document carefully (OCR if needed) and produce a formal fixed-price quotation in GBP.
 
-Use these indicative price anchors from the company website (adjust up/down based on scope, access, ACM type, and licensed vs non-licensed work found in the report):
+PRICE BOOK (company Service Catalog — use these rates as the primary basis for line items; match the closest catalog item to each ACM/work found in the report):
 ${pricingText}
 
 Rules:
+- Prefer catalog rates above. Use exact unit_price_gbp where the work matches a catalog item.
+- For measured works (per m² / per unit / linear metre), estimate quantity from the report and multiply by the catalog rate.
+- For fixed catalog items (garage roofs, tanks, boilers, etc.), use the fixed price when scope matches; note size/access assumptions if the report differs.
+- If work is not in the catalog, price conservatively and state that in assumptions.
 - Currency is GBP. Include 20% VAT as a separate vat_gbp field.
 - line_items totals must add up to subtotal_gbp; subtotal + vat = total_gbp.
 - Be specific: reference ACMs, locations, and works actually described in the report.
-- If the report is unclear, state assumptions and use conservative mid-range pricing.
+- If the report is unclear, state assumptions and use conservative mid-range pricing from the catalog.
 - validity_days should be 30 unless the report implies urgency.
 - Do not invent a property address if none is present — use null.
 - risk_notes should highlight HSE / CAR 2012 considerations relevant to this job.
+- Typical exclusions (unless clearly included in the catalog item): scaffolding by others, bitumen/resin adhesive removal under floor tiles, client-supplied access equipment where noted.
 - Return ONLY structured JSON matching the schema.`;
 
   const response = await ai.models.generateContent({

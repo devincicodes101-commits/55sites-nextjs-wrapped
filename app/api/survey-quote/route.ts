@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createQuoteInBase44, buildLeadDetailsFromQuote, isBase44Configured } from "@/lib/base44";
+import { catalogToPricingHints, loadCatalogServices } from "@/lib/catalog-pricing";
 import { generateQuoteFromSurvey, isGeminiConfigured } from "@/lib/gemini-quote";
 import { isSurveyQuotePilotEnabled } from "@/lib/pilot";
 import { isEmailConfigured, sendQuoteEmail } from "@/lib/send-quote-email";
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
   const customerName = `${firstName} ${lastName}`.trim();
 
   try {
+    const catalog = await loadCatalogServices();
     const quote = await generateQuoteFromSurvey({
       fileBuffer: buffer,
       mimeType: file.type,
@@ -93,11 +95,7 @@ export async function POST(request: Request) {
       city: site.city,
       region: site.region,
       businessName: site.businessName,
-      pricingHints: site.pricing.map((p) => ({
-        label: p.label,
-        price: `${p.unit ? p.unit + " " : ""}${p.price}`.trim(),
-        note: p.note,
-      })),
+      pricingHints: catalogToPricingHints(catalog),
     });
 
     const emailResult = await sendQuoteEmail({

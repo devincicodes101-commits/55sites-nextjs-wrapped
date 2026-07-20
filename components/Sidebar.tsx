@@ -21,6 +21,12 @@ export default function Sidebar({ activeSlug }: { activeSlug?: string }) {
         <Link href="/areas" className={`sb-link${activeSlug === "areas" ? " active" : ""}`}>
           Coverage Areas Near {city}
         </Link>
+        <Link
+          href="/services/cost"
+          className={`sb-link${activeSlug === "cost" ? " active" : ""}`}
+        >
+          How Much Does It Cost?
+        </Link>
         {areas.slice(0, 5).map((a) => (
           <Link
             key={a.slug}

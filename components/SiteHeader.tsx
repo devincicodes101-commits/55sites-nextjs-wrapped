@@ -81,12 +81,14 @@ export default function SiteHeader({ siteConfig }: { siteConfig: SiteConfig }) {
               <div className="nl nl-dd">
                 Services ▾
                 <div className="dd">
-                  {services.map((s) => (
-                    <Link key={s.slug} href={`/services/${s.slug}`}>
-                      {s.title}
-                    </Link>
-                  ))}
-                  <Link href="/areas">Coverage Areas</Link>
+                  <div className="dd-inner">
+                    {services.map((s) => (
+                      <Link key={s.slug} href={`/services/${s.slug}`}>
+                        {s.title}
+                      </Link>
+                    ))}
+                    <Link href="/areas">Coverage Areas</Link>
+                  </div>
                 </div>
               </div>
               <Link href="/contact" className="nl">
