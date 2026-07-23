@@ -80,7 +80,7 @@ per-site builds or deployments.
 End-to-end flow on the Contact page when `SURVEY_QUOTE_PILOT_ENABLED=true` (all domains by default):
 
 1. Visitor uploads an asbestos survey (PDF/image) + contact details
-2. Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash`) OCR/reads the report and builds a formal GBP quote using the shared Service Catalog rates (`lib/catalog-pricing.ts`, optionally refreshed live from `BASE44_CATALOG_APP_ID`)
+2. Gemini (`GEMINI_MODEL`, default `gemini-3.5-flash`) OCR/reads the report and extracts scope only (catalog item + quantity). Unit prices and totals are applied in code from the shared Service Catalog (`lib/catalog-pricing.ts`, live from `BASE44_CATALOG_APP_ID` Service entity when available) so the same survey yields the same rates on every domain.
 3. Quote is emailed via Resend (if `RESEND_API_KEY` + `QUOTE_FROM_EMAIL` are set)
 4. Lead is created in Base44 CRM (`BASE44_ENTITY`, default `Lead`) with quote JSON, total, survey summary, and status `quoted`
 

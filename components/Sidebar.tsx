@@ -48,6 +48,9 @@ export default function Sidebar({ activeSlug }: { activeSlug?: string }) {
           <ContactForm
             variant="compact"
             serviceOptions={[...services.map((s) => s.title), "Emergency Response", "General Enquiry"]}
+            successTitle="Callback Requested!"
+            successBody={`Our ${city} team will call you back shortly.`}
+            submitLabel="Request Callback →"
           />
         </div>
       </div>

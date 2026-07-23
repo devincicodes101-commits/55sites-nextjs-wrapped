@@ -108,3 +108,68 @@ export async function sendQuoteEmail(input: {
 
   return { sent: true, id: data.id };
 }
+
+/**
+ * Internal alert so callback / contact enquiries are not lost if CRM write fails.
+ * Sends to LEADS_NOTIFY_EMAIL, or the address portion of QUOTE_FROM_EMAIL.
+ */
+export async function sendLeadAlertEmail(input: {
+  firstName: string;
+  lastName: string | null;
+  phone: string;
+  email: string | null;
+  service: string;
+  details: string | null;
+  city: string;
+  domain: string;
+  source: string;
+}): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "Email not configured" };
+  }
+
+  const from = process.env.QUOTE_FROM_EMAIL!;
+  const apiKey = process.env.RESEND_API_KEY!;
+  const notifyTo =
+    process.env.LEADS_NOTIFY_EMAIL?.trim() ||
+    from.match(/<([^>]+)>/)?.[1] ||
+    from.trim();
+
+  if (!notifyTo || !notifyTo.includes("@")) {
+    return { sent: false, error: "No LEADS_NOTIFY_EMAIL / QUOTE_FROM_EMAIL recipient" };
+  }
+
+  const name = [input.firstName, input.lastName].filter(Boolean).join(" ");
+  const html = `
+  <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#222">
+    <h2 style="margin:0 0 12px">New website enquiry — ${input.city}</h2>
+    <p style="margin:0 0 8px"><strong>Source:</strong> ${input.source}</p>
+    <p style="margin:0 0 8px"><strong>Domain:</strong> ${input.domain}</p>
+    <p style="margin:0 0 8px"><strong>Name:</strong> ${name}</p>
+    <p style="margin:0 0 8px"><strong>Phone:</strong> <a href="tel:${input.phone}">${input.phone}</a></p>
+    <p style="margin:0 0 8px"><strong>Email:</strong> ${input.email || "—"}</p>
+    <p style="margin:0 0 8px"><strong>Service:</strong> ${input.service}</p>
+    <p style="margin:16px 0 0"><strong>Details:</strong></p>
+    <p style="white-space:pre-wrap">${input.details || "—"}</p>
+  </div>`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [notifyTo],
+      subject: `[Callback] ${input.city} — ${name} — ${input.phone}`,
+      html,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+  if (!res.ok) {
+    return { sent: false, error: data.message || `Resend error ${res.status}` };
+  }
+  return { sent: true };
+}

@@ -68,14 +68,26 @@ export default function ContactForm({
     setSubmitting(true);
 
     const data = Object.fromEntries(new FormData(e.currentTarget).entries());
+    const payload = {
+      ...data,
+      source:
+        variant === "compact"
+          ? "callback_sidebar"
+          : variant === "inline"
+            ? "callback_inline"
+            : "website",
+    };
 
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Request failed");
+      const json = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+      if (!res.ok) {
+        throw new Error(json.detail || json.error || "Request failed");
+      }
       setSubmitted(true);
     } catch {
       setError("Something went wrong sending your message. Please call us instead.");

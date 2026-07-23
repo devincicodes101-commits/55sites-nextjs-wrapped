@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
-import { createQuoteInBase44, isBase44Configured } from "@/lib/base44";
+import {
+  createQuoteInBase44,
+  isBase44Configured,
+  splitPersonName,
+  withTimeout,
+} from "@/lib/base44";
+import { isEmailConfigured, sendLeadAlertEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 import { getSupabaseClient } from "@/lib/supabase";
 
+const CRM_TIMEOUT_MS = 12_000;
+
 function isSupabaseConfigured(): boolean {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+function asOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 export async function POST(request: Request) {
@@ -13,12 +27,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { firstName, lastName, name, phone, email, service, details, message } = body as Record<
-    string,
-    unknown
-  >;
+  const {
+    firstName,
+    lastName,
+    name,
+    phone,
+    email,
+    service,
+    details,
+    message,
+    source,
+  } = body as Record<string, unknown>;
 
-  if (!phone || typeof phone !== "string") {
+  if (!phone || typeof phone !== "string" || !phone.trim()) {
     return NextResponse.json({ error: "Phone is required" }, { status: 400 });
   }
 
@@ -28,65 +49,133 @@ export async function POST(request: Request) {
 
   const { city, domain } = getSiteConfig();
 
-  const first_name = (typeof firstName === "string" ? firstName : null) ??
-    (typeof name === "string" ? name : null);
-  const last_name = typeof lastName === "string" ? lastName : null;
-  const emailValue = typeof email === "string" ? email : null;
+  const explicitFirst = asOptionalString(firstName);
+  const explicitLast = asOptionalString(lastName);
+  const fromFullName = splitPersonName(asOptionalString(name));
+
+  const first_name = explicitFirst ?? fromFullName.firstName;
+  // Only use split last-name when the form sent a single full-name field.
+  const last_name = explicitLast ?? (explicitFirst ? null : fromFullName.lastName);
+  const emailValue = asOptionalString(email);
   const serviceValue = service.trim();
-  const detailsValue =
-    (typeof details === "string" ? details : null) ??
-    (typeof message === "string" ? message : null);
+  const detailsValue = asOptionalString(details) ?? asOptionalString(message);
+  const leadSource = asOptionalString(source) ?? "website";
+  const phoneValue = phone.trim();
+
+  if (!first_name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  }
 
   const useBase44 = isBase44Configured();
   const useSupabase = isSupabaseConfigured();
+  const useEmailFallback = isEmailConfigured();
 
-  if (!useBase44 && !useSupabase) {
-    console.error("Contact form: neither Base44 nor Supabase is configured");
+  if (!useBase44 && !useSupabase && !useEmailFallback) {
+    console.error("Contact form: neither Base44, Supabase, nor email is configured");
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
+  let savedToCrm = false;
+  let crmError: string | null = null;
+
   try {
     if (useBase44) {
-      await createQuoteInBase44({
-        firstName: first_name,
-        lastName: last_name,
-        phone,
-        email: emailValue,
-        service: serviceValue,
-        details: detailsValue,
-        city,
-        domain,
-      });
+      try {
+        await withTimeout(
+          createQuoteInBase44({
+            firstName: first_name,
+            lastName: last_name,
+            phone: phoneValue,
+            email: emailValue,
+            service: serviceValue,
+            details: detailsValue,
+            city,
+            domain,
+            lead_source: leadSource,
+            status: "new",
+          }),
+          CRM_TIMEOUT_MS,
+          "Base44 Lead.create",
+        );
+        savedToCrm = true;
+      } catch (err) {
+        crmError = err instanceof Error ? err.message : String(err);
+        console.error("Base44 contact lead failed", err);
+      }
     }
 
     if (useSupabase) {
-      const supabase = getSupabaseClient();
-      const { error } = await supabase.from("contact_submissions").insert({
-        city,
-        domain,
-        first_name,
-        last_name,
-        phone,
+      try {
+        const supabase = getSupabaseClient();
+        const insertPromise = supabase.from("contact_submissions").insert({
+          city,
+          domain,
+          first_name,
+          last_name,
+          phone: phoneValue,
+          email: emailValue,
+          service: serviceValue,
+          details: detailsValue,
+          message: detailsValue,
+        });
+        const { error } = await withTimeout(insertPromise, CRM_TIMEOUT_MS, "Supabase contact insert");
+
+        if (error) {
+          console.error("Supabase contact insert failed", error);
+        } else {
+          savedToCrm = true;
+        }
+      } catch (err) {
+        console.error("Supabase contact insert error", err);
+      }
+    }
+
+    // Email fallback when CRM write failed/hung — keeps sidebar callbacks from being lost.
+    if (!savedToCrm && useEmailFallback) {
+      const alert = await sendLeadAlertEmail({
+        firstName: first_name,
+        lastName: last_name,
+        phone: phoneValue,
         email: emailValue,
         service: serviceValue,
         details: detailsValue,
-        message: detailsValue,
+        city,
+        domain,
+        source: leadSource,
       });
-
-      if (error) {
-        // If Base44 already saved the lead, don't fail the user — log the backup miss.
-        if (useBase44) {
-          console.error("Supabase backup insert failed after Base44 success", error);
-        } else {
-          console.error("Supabase insert failed", error);
-          return NextResponse.json({ error: "Failed to save submission" }, { status: 500 });
-        }
+      if (!alert.sent) {
+        console.error("Lead alert email failed", alert.error, crmError);
+        return NextResponse.json(
+          {
+            error: "Failed to save submission",
+            detail: process.env.NODE_ENV === "development" ? crmError || alert.error : undefined,
+          },
+          { status: 500 },
+        );
       }
+      console.warn("Contact lead saved via email fallback after CRM failure", crmError);
+    }
+
+    if (!savedToCrm && !useEmailFallback) {
+      return NextResponse.json(
+        {
+          error: "Failed to save submission",
+          detail: process.env.NODE_ENV === "development" ? crmError : undefined,
+        },
+        { status: 500 },
+      );
     }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Contact form submission error", err);
-    return NextResponse.json({ error: "Failed to save submission" }, { status: 500 });
+    const messageText = err instanceof Error ? err.message : "Failed to save submission";
+    return NextResponse.json(
+      {
+        error: "Failed to save submission",
+        detail: process.env.NODE_ENV === "development" ? messageText : undefined,
+      },
+      { status: 500 },
+    );
   }
 }

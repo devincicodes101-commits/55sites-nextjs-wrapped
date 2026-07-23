@@ -1,4 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
+import {
+  applyCatalogRates,
+  totalsFromLineItems,
+  type CatalogService,
+  type PricingHint,
+} from "./catalog-pricing";
 
 export type QuoteLineItem = {
   description: string;
@@ -6,6 +11,7 @@ export type QuoteLineItem = {
   unit: string;
   unit_price_gbp: number;
   total_gbp: number;
+  catalog_name?: string;
 };
 
 export type GeneratedQuote = {
@@ -24,7 +30,26 @@ export type GeneratedQuote = {
   risk_notes: string;
 };
 
-const QUOTE_JSON_SCHEMA = {
+/** Gemini extracts scope only — unit prices come from the Service Catalog in code. */
+type SurveyScopeDraft = {
+  survey_summary: string;
+  property_address: string | null;
+  property_type: string | null;
+  identified_acms: string[];
+  recommended_works: string[];
+  line_items: {
+    catalog_name: string;
+    description: string;
+    quantity: number;
+    unit: string;
+  }[];
+  assumptions: string[];
+  exclusions: string[];
+  validity_days: number;
+  risk_notes: string;
+};
+
+const SCOPE_JSON_SCHEMA = {
   type: "object",
   properties: {
     survey_summary: { type: "string" },
@@ -37,18 +62,14 @@ const QUOTE_JSON_SCHEMA = {
       items: {
         type: "object",
         properties: {
+          catalog_name: { type: "string" },
           description: { type: "string" },
           quantity: { type: "number" },
           unit: { type: "string" },
-          unit_price_gbp: { type: "number" },
-          total_gbp: { type: "number" },
         },
-        required: ["description", "quantity", "unit", "unit_price_gbp", "total_gbp"],
+        required: ["catalog_name", "description", "quantity", "unit"],
       },
     },
-    subtotal_gbp: { type: "number" },
-    vat_gbp: { type: "number" },
-    total_gbp: { type: "number" },
     assumptions: { type: "array", items: { type: "string" } },
     exclusions: { type: "array", items: { type: "string" } },
     validity_days: { type: "number" },
@@ -59,9 +80,6 @@ const QUOTE_JSON_SCHEMA = {
     "identified_acms",
     "recommended_works",
     "line_items",
-    "subtotal_gbp",
-    "vat_gbp",
-    "total_gbp",
     "assumptions",
     "exclusions",
     "validity_days",
@@ -69,18 +87,14 @@ const QUOTE_JSON_SCHEMA = {
   ],
 } as const;
 
-function getClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
-  return new GoogleGenAI({ apiKey });
-}
-
 export function isGeminiConfigured(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
 /**
- * Reads a survey PDF/image with Gemini and returns a structured formal quote.
+ * Reads a survey PDF/image with Gemini, maps works to the Service Catalog,
+ * then applies fixed catalog unit prices in code (single source of truth).
+ * Site/city must not change rates — same survey ⇒ same prices on every domain.
  */
 export async function generateQuoteFromSurvey(input: {
   fileBuffer: Buffer;
@@ -90,48 +104,53 @@ export async function generateQuoteFromSurvey(input: {
   city: string;
   region: string;
   businessName: string;
-  pricingHints: {
-    label: string;
-    price: string;
-    note: string;
-    unit_type?: string;
-    unit_price_gbp?: number;
-  }[];
+  pricingHints: PricingHint[];
+  catalog: CatalogService[];
 }): Promise<GeneratedQuote> {
-  const ai = getClient();
+  const { GoogleGenAI } = await import("@google/genai");
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
+  const ai = new GoogleGenAI({ apiKey });
   const model = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+
+  const catalogNames = input.catalog
+    .filter((s) => s.is_active !== false)
+    .map((s) => s.name);
 
   const pricingText = input.pricingHints
     .map((p) => {
-      const rate =
-        "unit_price_gbp" in p && typeof p.unit_price_gbp === "number"
-          ? `£${p.unit_price_gbp} (${p.price})`
-          : p.price;
-      return `- ${p.label}: ${rate}\n  Scope/notes: ${p.note}`;
+      const rate = `£${p.unit_price_gbp} (${p.price}) [${p.unit_type}]`;
+      return `- "${p.label}": ${rate}\n  Scope/notes: ${p.note}`;
     })
     .join("\n");
 
-  const prompt = `You are a senior estimator for a UK HSE-licensed asbestos removal contractor (${input.businessName}) operating in ${input.city}, ${input.region}.
+  const prompt = `You are a senior estimator for a UK HSE-licensed asbestos removal contractor (${input.businessName}).
+The customer enquiry is associated with ${input.city}, ${input.region} — use that only for context (address/local notes). Do NOT adjust prices for location: national Service Catalog rates apply identically on every website.
 
-A customer named ${input.customerName} uploaded a site survey / asbestos report. Read the document carefully (OCR if needed) and produce a formal fixed-price quotation in GBP.
+A customer named ${input.customerName} uploaded a site survey / asbestos report. Read the document carefully (OCR if needed).
 
-PRICE BOOK (company Service Catalog — use these rates as the primary basis for line items; match the closest catalog item to each ACM/work found in the report):
+Your job is SCOPE EXTRACTION ONLY — do not invent or calculate money amounts.
+Unit prices are applied later from the company Service Catalog (Base44 Service entity). You must never output prices, GBP amounts, VAT, or totals.
+
+SERVICE CATALOG (choose catalog_name EXACTLY from this list; copy the name character-for-character):
+${catalogNames.map((n) => `- "${n}"`).join("\n")}
+
+Catalog rate reference (for understanding unit types only — do not quote these numbers in the JSON):
 ${pricingText}
 
 Rules:
-- Prefer catalog rates above. Use exact unit_price_gbp where the work matches a catalog item.
-- For measured works (per m² / per unit / linear metre), estimate quantity from the report and multiply by the catalog rate.
-- For fixed catalog items (garage roofs, tanks, boilers, etc.), use the fixed price when scope matches; note size/access assumptions if the report differs.
-- If work is not in the catalog, price conservatively and state that in assumptions.
-- Currency is GBP. Include 20% VAT as a separate vat_gbp field.
-- line_items totals must add up to subtotal_gbp; subtotal + vat = total_gbp.
-- Be specific: reference ACMs, locations, and works actually described in the report.
-- If the report is unclear, state assumptions and use conservative mid-range pricing from the catalog.
+- For each ACM / recommended removal or related catalog work in the report, add one line_item.
+- catalog_name MUST be an exact string from the SERVICE CATALOG list above. If nothing matches, use catalog_name "OTHER" and explain in assumptions (OTHER lines are excluded from the priced quote).
+- quantity: estimate from the report (m², number of sheets/bags/jobs). For fixed catalog jobs (garage roof, tank, boiler, etc.) use quantity 1 per occurrence.
+- unit: use "m²", "unit", "sheet", "bag", or "job" as appropriate — the pricing engine will normalise from the catalog unit_type.
+- description: short human-readable line referencing location/ACM from the report.
+- Do not invent works that are not supported by the report.
+- If the report is unclear on quantity, state the assumption and use a conservative measurable estimate.
 - validity_days should be 30 unless the report implies urgency.
 - Do not invent a property address if none is present — use null.
 - risk_notes should highlight HSE / CAR 2012 considerations relevant to this job.
-- Typical exclusions (unless clearly included in the catalog item): scaffolding by others, bitumen/resin adhesive removal under floor tiles, client-supplied access equipment where noted.
-- Return ONLY structured JSON matching the schema.`;
+- Typical exclusions: scaffolding by others, bitumen/resin adhesive removal under floor tiles, client-supplied access equipment where noted in the catalog.
+- Return ONLY structured JSON matching the schema (no prices).`;
 
   const response = await ai.models.generateContent({
     model,
@@ -152,19 +171,60 @@ Rules:
     ],
     config: {
       responseMimeType: "application/json",
-      responseJsonSchema: QUOTE_JSON_SCHEMA,
-      temperature: 0.2,
+      responseJsonSchema: SCOPE_JSON_SCHEMA,
+      temperature: 0,
     },
   });
 
   const text = response.text;
   if (!text) throw new Error("Gemini returned an empty quote response");
 
-  const parsed = JSON.parse(text) as GeneratedQuote;
-
-  if (!Array.isArray(parsed.line_items) || parsed.line_items.length === 0) {
+  const draft = JSON.parse(text) as SurveyScopeDraft;
+  if (!Array.isArray(draft.line_items) || draft.line_items.length === 0) {
     throw new Error("Gemini quote missing line items");
   }
 
-  return parsed;
+  const priced = applyCatalogRates(draft.line_items, input.catalog);
+  if (priced.line_items.length === 0) {
+    throw new Error(
+      "No Service Catalog matches for the works found in this survey — please call us for a manual quote",
+    );
+  }
+
+  const { subtotal_gbp, vat_gbp, total_gbp } = totalsFromLineItems(priced.line_items);
+
+  const assumptions = [
+    ...(Array.isArray(draft.assumptions) ? draft.assumptions : []),
+    ...priced.assumptions,
+    "Unit prices taken from the Asbestos UK Teams Service Catalog (Base44) — same rates on every website.",
+  ];
+
+  if (priced.unmatched.length > 0) {
+    assumptions.push(
+      `Works requiring manual estimate (not in Service Catalog): ${priced.unmatched.join("; ")}`,
+    );
+  }
+
+  return {
+    survey_summary: draft.survey_summary,
+    property_address: draft.property_address ?? null,
+    property_type: draft.property_type ?? null,
+    identified_acms: draft.identified_acms ?? [],
+    recommended_works: draft.recommended_works ?? [],
+    line_items: priced.line_items.map((li) => ({
+      description: li.description,
+      quantity: li.quantity,
+      unit: li.unit,
+      unit_price_gbp: li.unit_price_gbp,
+      total_gbp: li.total_gbp,
+      catalog_name: li.catalog_name,
+    })),
+    subtotal_gbp,
+    vat_gbp,
+    total_gbp,
+    assumptions,
+    exclusions: Array.isArray(draft.exclusions) ? draft.exclusions : [],
+    validity_days: typeof draft.validity_days === "number" ? draft.validity_days : 30,
+    risk_notes: draft.risk_notes ?? "",
+  };
 }

@@ -96,6 +96,7 @@ export async function POST(request: Request) {
       region: site.region,
       businessName: site.businessName,
       pricingHints: catalogToPricingHints(catalog),
+      catalog,
     });
 
     const emailResult = await sendQuoteEmail({

@@ -216,6 +216,136 @@ export function catalogToPriceItems(services: CatalogService[] = CATALOG_PRICING
     }));
 }
 
+export function normalizeCatalogKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Match a Gemini-selected catalog name to a Service row (exact, then fuzzy). */
+export function findCatalogService(
+  catalogName: string | null | undefined,
+  services: CatalogService[] = CATALOG_PRICING,
+): CatalogService | null {
+  if (!catalogName || catalogName.toUpperCase() === "OTHER") return null;
+  const needle = normalizeCatalogKey(catalogName);
+  if (!needle) return null;
+
+  const active = services.filter((s) => s.is_active !== false);
+  const exact = active.find((s) => normalizeCatalogKey(s.name) === needle);
+  if (exact) return exact;
+
+  const partial = active.find(
+    (s) =>
+      needle.includes(normalizeCatalogKey(s.name)) ||
+      normalizeCatalogKey(s.name).includes(needle),
+  );
+  return partial ?? null;
+}
+
+export type CatalogScopeLine = {
+  catalog_name: string;
+  description: string;
+  quantity: number;
+  unit: string;
+};
+
+export type PricedLineItem = {
+  catalog_name: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  unit_price_gbp: number;
+  total_gbp: number;
+};
+
+/**
+ * Apply Base44 Service Catalog unit prices as the single source of truth.
+ * Gemini may only supply catalog_name + quantity; rates come from the catalog.
+ */
+export function applyCatalogRates(
+  lines: CatalogScopeLine[],
+  services: CatalogService[] = CATALOG_PRICING,
+): { line_items: PricedLineItem[]; unmatched: string[]; assumptions: string[] } {
+  const line_items: PricedLineItem[] = [];
+  const unmatched: string[] = [];
+  const assumptions: string[] = [];
+
+  for (const line of lines) {
+    const qty = Number(line.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+
+    const service = findCatalogService(line.catalog_name, services);
+    if (!service) {
+      unmatched.push(line.description || line.catalog_name || "Unknown work");
+      continue;
+    }
+
+    let quantity = qty;
+    let unitPrice = service.unit_price;
+    let total = round2(quantity * unitPrice);
+    let unit = formatDisplayUnit(service.unit_type, line.unit);
+
+    // Catalog rule: corrugated sheet collection has £350 minimum call-out (10 sheets).
+    if (normalizeCatalogKey(service.name).includes("corrugated sheet collection")) {
+      const minSheets = 10;
+      const minCallOut = 350;
+      if (quantity < minSheets || total < minCallOut) {
+        quantity = minSheets;
+        total = minCallOut;
+        unitPrice = round2(total / quantity);
+        assumptions.push(
+          `Corrugated sheet collection: minimum call-out £${minCallOut} (${minSheets} sheets) applied from Service Catalog.`,
+        );
+      }
+    }
+
+    if (service.unit_type === "fixed") {
+      // Fixed catalog jobs are priced per occurrence; keep quantity as count of jobs.
+      unit = "job";
+      total = round2(quantity * service.unit_price);
+      unitPrice = service.unit_price;
+    }
+
+    line_items.push({
+      catalog_name: service.name,
+      description: line.description?.trim() || service.name,
+      quantity: round2(quantity),
+      unit,
+      unit_price_gbp: unitPrice,
+      total_gbp: total,
+    });
+  }
+
+  return { line_items, unmatched, assumptions };
+}
+
+export function totalsFromLineItems(line_items: { total_gbp: number }[], vatRate = 0.2) {
+  const subtotal_gbp = round2(line_items.reduce((sum, li) => sum + li.total_gbp, 0));
+  const vat_gbp = round2(subtotal_gbp * vatRate);
+  const total_gbp = round2(subtotal_gbp + vat_gbp);
+  return { subtotal_gbp, vat_gbp, total_gbp };
+}
+
+function formatDisplayUnit(unitType: CatalogUnitType, fallback: string): string {
+  switch (unitType) {
+    case "per_sqm":
+      return "m²";
+    case "per_unit":
+      return "unit";
+    case "fixed":
+      return "job";
+    default:
+      return fallback || String(unitType);
+  }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 /**
  * Prefer live Base44 Service catalog; fall back to the static snapshot.
  */
