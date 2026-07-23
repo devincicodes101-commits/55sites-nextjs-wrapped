@@ -59,15 +59,16 @@ h4,
 
 .lead-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
   gap: 12px;
-  max-width: 900px;
+  max-width: 980px;
   margin: 0 auto;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   padding: 20px;
   text-align: left;
+  align-items: end;
 }
 .lead-row .fg {
   margin-bottom: 0;
@@ -76,13 +77,15 @@ h4,
   color: rgba(255, 255, 255, 0.7);
 }
 .lead-row .fg input,
-.lead-row .fg select {
+.lead-row .fg select,
+.lead-row .fg textarea {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.15);
   color: #fff;
   color-scheme: dark;
 }
-.lead-row .fg input::placeholder {
+.lead-row .fg input::placeholder,
+.lead-row .fg textarea::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
 .lead-row .fg select option {

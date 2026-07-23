@@ -57,6 +57,32 @@ export function splitPersonName(fullName: string | null | undefined): {
   };
 }
 
+/**
+ * CRM `source` is typically a fixed enum (e.g. "website").
+ * Keep the enum safe and put the form channel into details instead.
+ */
+export function normalizeCrmSource(source: string | null | undefined): string {
+  const raw = (source ?? "").trim().toLowerCase();
+  if (!raw || raw.startsWith("callback") || raw === "website" || raw === "survey_quote_pilot") {
+    return "website";
+  }
+  return "website";
+}
+
+/** Always produce a non-empty details string for CRM visibility. */
+export function buildCrmDetails(input: {
+  details?: string | null;
+  source?: string | null;
+  city: string;
+  domain: string;
+}): string {
+  const userText = (input.details ?? "").trim();
+  const channel = (input.source ?? "website").trim() || "website";
+  const meta = [`Channel: ${channel}`, `Site: ${input.city} (${input.domain})`];
+  if (userText) return `${userText}\n\n${meta.join(" · ")}`;
+  return `Callback / quote request (no extra message provided).\n\n${meta.join(" · ")}`;
+}
+
 function compactRecord(record: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(record)) {
@@ -89,7 +115,7 @@ function formatBase44Error(err: unknown): string {
 
 /**
  * Creates a quote/lead record in the Base44 CRM app.
- * Omits null/empty optional fields so compact callback forms (no email/last name) still save.
+ * Writes both `details` and `message` so either Lead schema field receives the enquiry text.
  */
 export async function createQuoteInBase44(payload: QuoteLeadPayload) {
   const { appId, entityName, token, serviceToken } = getBase44Config();
@@ -100,16 +126,28 @@ export async function createQuoteInBase44(payload: QuoteLeadPayload) {
     ...(serviceToken ? { serviceToken } : {}),
   });
 
+  const detailsText = buildCrmDetails({
+    details: payload.details,
+    source: payload.lead_source,
+    city: payload.city,
+    domain: payload.domain,
+  });
+
+  // last_name: CRM schemas often require it — use "-" when the compact form only has one name.
+  const lastName = (payload.lastName ?? "").trim() || "-";
+
   const record = compactRecord({
     first_name: payload.firstName,
-    last_name: payload.lastName,
+    last_name: lastName,
     phone: payload.phone,
     email: payload.email,
     service: payload.service,
-    details: payload.details,
+    // Dual-write for schema compatibility (pre/post "details" rename).
+    details: detailsText,
+    message: detailsText,
     city: payload.city,
     domain: payload.domain,
-    source: payload.lead_source ?? "website",
+    source: normalizeCrmSource(payload.lead_source),
     status: payload.status ?? "new",
     quote_ref: payload.quote_ref,
     quote_total_gbp: payload.quote_total_gbp,
@@ -121,6 +159,9 @@ export async function createQuoteInBase44(payload: QuoteLeadPayload) {
 
   if (!record.phone) {
     throw new Error("Phone is required to create a Base44 lead");
+  }
+  if (!record.first_name) {
+    throw new Error("first_name is required to create a Base44 lead");
   }
 
   const entities = getEntities(base44, serviceToken);

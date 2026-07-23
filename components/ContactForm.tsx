@@ -116,6 +116,10 @@ export default function ContactForm({
           <label>Phone</label>
           <input type="tel" name="phone" placeholder="07XXX XXXXXX" required />
         </div>
+        <div className="fg">
+          <label>Email</label>
+          <input type="email" name="email" placeholder="you@example.com" />
+        </div>
         <ServiceSelect options={options} light />
         <div className="fg">
           <label>Message</label>
@@ -123,7 +127,7 @@ export default function ContactForm({
         </div>
         {error && <p style={{ color: "#c0392b", fontSize: ".85rem", marginTop: 6 }}>{error}</p>}
         <button type="submit" className="fsub" style={{ marginTop: 8, background: "var(--s)" }} disabled={submitting}>
-          {submitting ? "Sending…" : "Request Callback →"}
+          {submitting ? "Sending…" : submitLabel}
         </button>
       </form>
     );
@@ -140,7 +144,15 @@ export default function ContactForm({
           <label>Phone</label>
           <input type="tel" name="phone" placeholder="07XXX XXXXXX" required />
         </div>
+        <div className="fg">
+          <label>Email</label>
+          <input type="email" name="email" placeholder="you@example.com" />
+        </div>
         <ServiceSelect options={options} light />
+        <div className="fg" style={{ gridColumn: "1 / -1" }}>
+          <label>Message</label>
+          <textarea name="details" rows={2} placeholder="Brief details (optional)" />
+        </div>
         <button type="submit" className="lead-row-btn" disabled={submitting}>
           {submitting ? "Sending…" : "Get Quote →"}
         </button>

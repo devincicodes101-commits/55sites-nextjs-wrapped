@@ -82,8 +82,6 @@ export default function SiteFooter() {
             <Link href="/contact" className="footer-link">
               Contact Us
             </Link>
-            <div className="footer-link">Privacy Policy</div>
-            <div className="footer-link">Terms of Service</div>
           </div>
 
           <div>

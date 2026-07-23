@@ -107,21 +107,26 @@ export async function POST(request: Request) {
     if (useSupabase) {
       try {
         const supabase = getSupabaseClient();
-        const insertPromise = supabase.from("contact_submissions").insert({
-          city,
-          domain,
-          first_name,
-          last_name,
-          phone: phoneValue,
-          email: emailValue,
-          service: serviceValue,
-          details: detailsValue,
-          message: detailsValue,
-        });
-        const { error } = await withTimeout(insertPromise, CRM_TIMEOUT_MS, "Supabase contact insert");
+        const result = await withTimeout(
+          Promise.resolve(
+            supabase.from("contact_submissions").insert({
+              city,
+              domain,
+              first_name,
+              last_name,
+              phone: phoneValue,
+              email: emailValue,
+              service: serviceValue,
+              details: detailsValue,
+              message: detailsValue,
+            }),
+          ),
+          CRM_TIMEOUT_MS,
+          "Supabase contact insert",
+        );
 
-        if (error) {
-          console.error("Supabase contact insert failed", error);
+        if (result.error) {
+          console.error("Supabase contact insert failed", result.error);
         } else {
           savedToCrm = true;
         }
@@ -166,7 +171,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, crmSaved: savedToCrm });
   } catch (err) {
     console.error("Contact form submission error", err);
     const messageText = err instanceof Error ? err.message : "Failed to save submission";

@@ -102,12 +102,12 @@ export default function ContactPage() {
             <div className="contact-form-card">
               <h3 style={{ fontSize: "1.2rem", color: "var(--d)", marginBottom: 4 }}>Send Us a Message</h3>
               <p style={{ fontSize: ".82rem", color: "#888", marginBottom: 20 }}>
-                Response within 2 business hours.
+                Response within 2 hours.
               </p>
               <ContactForm
                 serviceOptions={serviceOptions}
                 successTitle="Message Sent!"
-                successBody="We'll respond within 2 business hours."
+                successBody="We'll respond within 2 hours."
                 submitLabel="Send Message →"
               />
             </div>
