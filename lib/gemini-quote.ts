@@ -214,6 +214,9 @@ Rules:
     );
   }
 
+  // Totals are built from PRICED items only. Works we could not match to the
+  // Service Catalog are never silently dropped (see below), but they must not
+  // inflate the total either.
   const { subtotal_gbp, vat_gbp, total_gbp } = totalsFromLineItems(priced.line_items);
 
   const assumptions = [
@@ -222,9 +225,21 @@ Rules:
     "Unit prices taken from the Asbestos UK Teams Service Catalog (Base44) — same rates on every website.",
   ];
 
-  if (priced.unmatched.length > 0) {
-    assumptions.push(
-      `Works requiring manual estimate (not in Service Catalog): ${priced.unmatched.join("; ")}`,
+  // Never silently drop works we could not price. Surface each unmatched item as a
+  // visible line item marked "Manual quote required" so the quote can never hide
+  // scope, and flag the whole quote as partial at the top of the assumptions.
+  const manualLineItems = priced.unmatched.map((u) => ({
+    description: `Manual quote required (not priced online): ${u.description}`,
+    quantity: u.quantity,
+    unit: u.unit,
+    unit_price_gbp: 0,
+    total_gbp: 0,
+    catalog_name: "MANUAL_QUOTE_REQUIRED",
+  }));
+
+  if (manualLineItems.length > 0) {
+    assumptions.unshift(
+      `PARTIAL QUOTE — ${manualLineItems.length} item(s) below are marked "Manual quote required" and are NOT included in the total above. Please contact us so we can price these works before proceeding.`,
     );
   }
 
@@ -234,14 +249,17 @@ Rules:
     property_type: draft.property_type ?? null,
     identified_acms: draft.identified_acms ?? [],
     recommended_works: draft.recommended_works ?? [],
-    line_items: priced.line_items.map((li) => ({
-      description: li.description,
-      quantity: li.quantity,
-      unit: li.unit,
-      unit_price_gbp: li.unit_price_gbp,
-      total_gbp: li.total_gbp,
-      catalog_name: li.catalog_name,
-    })),
+    line_items: [
+      ...priced.line_items.map((li) => ({
+        description: li.description,
+        quantity: li.quantity,
+        unit: li.unit,
+        unit_price_gbp: li.unit_price_gbp,
+        total_gbp: li.total_gbp,
+        catalog_name: li.catalog_name,
+      })),
+      ...manualLineItems,
+    ],
     subtotal_gbp,
     vat_gbp,
     total_gbp,

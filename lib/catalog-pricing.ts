@@ -261,6 +261,13 @@ export type PricedLineItem = {
   total_gbp: number;
 };
 
+/** A scope line we could not match to a Service Catalog entry (so cannot auto-price). */
+export type UnmatchedScopeLine = {
+  description: string;
+  quantity: number;
+  unit: string;
+};
+
 /**
  * Apply Base44 Service Catalog unit prices as the single source of truth.
  * Gemini may only supply catalog_name + quantity; rates come from the catalog.
@@ -268,9 +275,9 @@ export type PricedLineItem = {
 export function applyCatalogRates(
   lines: CatalogScopeLine[],
   services: CatalogService[] = CATALOG_PRICING,
-): { line_items: PricedLineItem[]; unmatched: string[]; assumptions: string[] } {
+): { line_items: PricedLineItem[]; unmatched: UnmatchedScopeLine[]; assumptions: string[] } {
   const line_items: PricedLineItem[] = [];
-  const unmatched: string[] = [];
+  const unmatched: UnmatchedScopeLine[] = [];
   const assumptions: string[] = [];
 
   for (const line of lines) {
@@ -279,7 +286,11 @@ export function applyCatalogRates(
 
     const service = findCatalogService(line.catalog_name, services);
     if (!service) {
-      unmatched.push(line.description || line.catalog_name || "Unknown work");
+      unmatched.push({
+        description: line.description || line.catalog_name || "Unknown work",
+        quantity: round2(qty),
+        unit: line.unit || "unit",
+      });
       continue;
     }
 
