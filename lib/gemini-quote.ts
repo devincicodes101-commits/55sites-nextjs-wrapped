@@ -180,8 +180,31 @@ Rules:
   if (!text) throw new Error("Gemini returned an empty quote response");
 
   const draft = JSON.parse(text) as SurveyScopeDraft;
+
+  // A survey can legitimately contain no asbestos (e.g. every sample "No Asbestos
+  // Detected"). In that case Gemini correctly returns zero line items — return a
+  // clean "no removal required" quote instead of failing the whole request.
   if (!Array.isArray(draft.line_items) || draft.line_items.length === 0) {
-    throw new Error("Gemini quote missing line items");
+    return {
+      survey_summary:
+        draft.survey_summary ||
+        "The uploaded survey did not identify any asbestos-containing materials requiring removal.",
+      property_address: draft.property_address ?? null,
+      property_type: draft.property_type ?? null,
+      identified_acms: draft.identified_acms ?? [],
+      recommended_works: draft.recommended_works ?? [],
+      line_items: [],
+      subtotal_gbp: 0,
+      vat_gbp: 0,
+      total_gbp: 0,
+      assumptions: [
+        ...(Array.isArray(draft.assumptions) ? draft.assumptions : []),
+        "No asbestos-containing materials requiring removal were identified in the uploaded survey, so no removal works have been quoted. Please contact us if you would like a survey or further advice.",
+      ],
+      exclusions: Array.isArray(draft.exclusions) ? draft.exclusions : [],
+      validity_days: typeof draft.validity_days === "number" ? draft.validity_days : 30,
+      risk_notes: draft.risk_notes ?? "",
+    };
   }
 
   const priced = applyCatalogRates(draft.line_items, input.catalog);
