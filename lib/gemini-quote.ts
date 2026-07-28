@@ -4,6 +4,7 @@ import {
   type CatalogService,
   type PricingHint,
 } from "./catalog-pricing";
+import { estimateUnmatchedItem, isOpenAIConfigured } from "./openai-estimate";
 
 export type QuoteLineItem = {
   description: string;
@@ -208,34 +209,90 @@ Rules:
   }
 
   const priced = applyCatalogRates(draft.line_items, input.catalog);
-  if (priced.line_items.length === 0) {
+
+  // Catalog-gap items: works Gemini found in the survey that don't match a fixed
+  // Service Catalog entry. For each one, try to price it with OpenAI (applying the
+  // LOWER end of its estimated range). Extraction (Gemini) is untouched — this only
+  // adds pricing for gaps. If OpenAI is unavailable or can't confidently price an
+  // item, that item falls back to a visible "Manual quote required" line so scope
+  // is never silently dropped.
+  const catalogLineItems: QuoteLineItem[] = priced.line_items.map((li) => ({
+    description: li.description,
+    quantity: li.quantity,
+    unit: li.unit,
+    unit_price_gbp: li.unit_price_gbp,
+    total_gbp: li.total_gbp,
+    catalog_name: li.catalog_name,
+  }));
+
+  const estimatedLineItems: QuoteLineItem[] = [];
+  const manualLineItems: QuoteLineItem[] = [];
+
+  if (priced.unmatched.length > 0) {
+    const results = await Promise.all(
+      priced.unmatched.map(async (u) => ({
+        u,
+        estimate: isOpenAIConfigured()
+          ? await estimateUnmatchedItem({
+              description: u.description,
+              quantity: u.quantity,
+              unit: u.unit,
+              city: input.city,
+              region: input.region,
+              businessName: input.businessName,
+              pricingHints: input.pricingHints,
+            })
+          : null,
+      })),
+    );
+
+    for (const { u, estimate } of results) {
+      if (estimate) {
+        estimatedLineItems.push({
+          description: `Estimated: ${estimate.identified_item}`,
+          quantity: u.quantity,
+          unit: u.unit,
+          unit_price_gbp: estimate.unit_price_applied_gbp,
+          total_gbp: estimate.total_gbp,
+          catalog_name: "AI_ESTIMATE",
+        });
+      } else {
+        manualLineItems.push({
+          description: `Manual quote required (not priced online): ${u.description}`,
+          quantity: u.quantity,
+          unit: u.unit,
+          unit_price_gbp: 0,
+          total_gbp: 0,
+          catalog_name: "MANUAL_QUOTE_REQUIRED",
+        });
+      }
+    }
+  }
+
+  // Decline safely only if nothing at all could be priced (no catalog match AND no
+  // AI estimate).
+  if (catalogLineItems.length === 0 && estimatedLineItems.length === 0) {
     throw new Error(
       "No Service Catalog matches for the works found in this survey — please call us for a manual quote",
     );
   }
 
-  // Totals are built from PRICED items only. Works we could not match to the
-  // Service Catalog are never silently dropped (see below), but they must not
-  // inflate the total either.
-  const { subtotal_gbp, vat_gbp, total_gbp } = totalsFromLineItems(priced.line_items);
+  // Total includes firm catalog prices AND the AI estimates (min of range applied).
+  // £0 "manual quote required" lines never affect the total.
+  const pricedForTotal = [...catalogLineItems, ...estimatedLineItems];
+  const { subtotal_gbp, vat_gbp, total_gbp } = totalsFromLineItems(pricedForTotal);
 
   const assumptions = [
     ...(Array.isArray(draft.assumptions) ? draft.assumptions : []),
     ...priced.assumptions,
-    "Unit prices taken from the Asbestos UK Teams Service Catalog (Base44) — same rates on every website.",
+    "Unit prices for catalogued works are taken from the Asbestos UK Teams Service Catalog (Base44) — same rates on every website.",
   ];
 
-  // Never silently drop works we could not price. Surface each unmatched item as a
-  // visible line item marked "Manual quote required" so the quote can never hide
-  // scope, and flag the whole quote as partial at the top of the assumptions.
-  const manualLineItems = priced.unmatched.map((u) => ({
-    description: `Manual quote required (not priced online): ${u.description}`,
-    quantity: u.quantity,
-    unit: u.unit,
-    unit_price_gbp: 0,
-    total_gbp: 0,
-    catalog_name: "MANUAL_QUOTE_REQUIRED",
-  }));
+  if (estimatedLineItems.length > 0) {
+    assumptions.push(
+      `${estimatedLineItems.length} line item(s) marked "Estimated" are for works not in our fixed catalog; the price shown is an automated estimate (lower end of the assessed range) and may be refined after a site visit.`,
+    );
+  }
 
   if (manualLineItems.length > 0) {
     assumptions.unshift(
@@ -249,17 +306,7 @@ Rules:
     property_type: draft.property_type ?? null,
     identified_acms: draft.identified_acms ?? [],
     recommended_works: draft.recommended_works ?? [],
-    line_items: [
-      ...priced.line_items.map((li) => ({
-        description: li.description,
-        quantity: li.quantity,
-        unit: li.unit,
-        unit_price_gbp: li.unit_price_gbp,
-        total_gbp: li.total_gbp,
-        catalog_name: li.catalog_name,
-      })),
-      ...manualLineItems,
-    ],
+    line_items: [...catalogLineItems, ...estimatedLineItems, ...manualLineItems],
     subtotal_gbp,
     vat_gbp,
     total_gbp,
