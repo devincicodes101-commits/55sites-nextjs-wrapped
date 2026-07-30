@@ -16,6 +16,43 @@ function money(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Build a plain-text + HTML reply from paragraphs (+ an optional bullet list after the first para). */
+function renderReply(
+  name: string,
+  paras: string[],
+  bullets: string[] | null,
+  businessName: string,
+): { text: string; html: string } {
+  const textLines: string[] = [`Hi ${name},`, ""];
+  paras.forEach((p, i) => {
+    textLines.push(p);
+    if (i === 0 && bullets && bullets.length) {
+      textLines.push("");
+      bullets.forEach((b) => textLines.push(`  - ${b}`));
+    }
+    textLines.push("");
+  });
+  textLines.push("Kind regards,", businessName);
+
+  const htmlParts: string[] = [`<p>Hi ${escapeHtml(name)},</p>`];
+  paras.forEach((p, i) => {
+    htmlParts.push(`<p>${escapeHtml(p)}</p>`);
+    if (i === 0 && bullets && bullets.length) {
+      htmlParts.push(`<ul>${bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>`);
+    }
+  });
+  htmlParts.push(`<p>Kind regards,<br>${escapeHtml(businessName)}</p>`);
+
+  return {
+    text: textLines.join("\n"),
+    html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222">${htmlParts.join("")}</div>`,
+  };
+}
+
 function makeQuoteRef(city: string) {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -26,14 +63,12 @@ function makeQuoteRef(city: string) {
 /**
  * Task C — email inquiry agent (brain endpoint, called by n8n).
  *
- * n8n owns the email I/O (IMAP in, SMTP reply out). This endpoint owns the
- * intelligence: read the thread, decide, draft the reply, and (when complete)
- * generate the quote + save the CRM lead. It returns everything n8n needs to send.
+ * n8n owns the email I/O (Gmail in, reply out). This endpoint owns the
+ * intelligence: read the thread, decide, draft the reply (plain + HTML), and
+ * (when complete) generate the quote + save the CRM lead.
  *
- * Request JSON:
- *   { fromEmail, fromName?, subject?, threadText, businessName?, city?, phoneDisplay? }
  * Response JSON:
- *   { action: "ask"|"quote"|"handoff", replyText, replySubject,
+ *   { action: "ask"|"quote"|"handoff", replySubject, replyText, replyHtml,
  *     isComplete, notifyRep, notifyText?, quoteRef?, totalGbp? }
  */
 export async function POST(request: Request) {
@@ -73,12 +108,10 @@ export async function POST(request: Request) {
     const catalog = await loadCatalogServices();
     const intent = await extractEmailIntent({ threadText, catalog });
 
-    // Resolve a display name + names for the CRM.
     const displayName = intent?.customer_name || fromName || "there";
     const { firstName, lastName } = splitPersonName(intent?.customer_name || fromName || fromEmail.split("@")[0]);
     const phone = intent?.customer_phone || "";
 
-    // Helper: save a lead, never let a CRM failure block the reply.
     async function saveLead(status: string, details: string, extra?: Record<string, unknown>) {
       try {
         await createQuoteInBase44({
@@ -86,9 +119,12 @@ export async function POST(request: Request) {
           lastName,
           phone,
           email: fromEmail,
-          service: intent?.identified_service && intent.identified_service !== "unknown" && intent.identified_service !== "ambiguous"
-            ? intent.identified_service
-            : "Email enquiry",
+          service:
+            intent?.identified_service &&
+            intent.identified_service !== "unknown" &&
+            intent.identified_service !== "ambiguous"
+              ? intent.identified_service
+              : "Email enquiry",
           details,
           city,
           domain: "",
@@ -103,11 +139,18 @@ export async function POST(request: Request) {
 
     // 1) Couldn't parse, or clearly not a catalog service -> human handoff.
     if (!intent || intent.identified_service === "unknown") {
+      const r = renderReply(
+        displayName,
+        [`Thanks for your enquiry. One of our asbestos specialists will review the details and be in touch shortly to help you further${callLine}.`],
+        null,
+        businessName,
+      );
       await saveLead("new", `Email enquiry needing review.${intent?.summary ? ` Summary: ${intent.summary}` : ""}`);
       return NextResponse.json({
         action: "handoff",
         replySubject,
-        replyText: `Hi ${displayName},\n\nThanks for your enquiry. One of our asbestos specialists will review the details and be in touch shortly to help you further${callLine}.\n\nKind regards,\n${businessName}`,
+        replyText: r.text,
+        replyHtml: r.html,
         isComplete: false,
         notifyRep: true,
         notifyText: `Email lead needs review — ${fromEmail}. ${intent?.summary || "(could not auto-identify service)"}`,
@@ -117,11 +160,21 @@ export async function POST(request: Request) {
     // 2) Ambiguous -> ask the one clarifying question.
     if (intent.identified_service === "ambiguous") {
       const q = intent.clarification_question || "Could you tell us a little more about the job so we can price it accurately?";
+      const r = renderReply(
+        displayName,
+        [
+          "Thanks for getting in touch about your asbestos enquiry. To prepare an accurate fixed-price quote, could you let me know:",
+          `Just reply to this email and I'll send your quote straight over${callLine}.`,
+        ],
+        [q],
+        businessName,
+      );
       await saveLead("awaiting_info", `Awaiting clarification: ${q} Summary: ${intent.summary}`);
       return NextResponse.json({
         action: "ask",
         replySubject,
-        replyText: `Hi ${displayName},\n\nThanks for getting in touch about your asbestos enquiry. To prepare an accurate fixed-price quote, could you let me know:\n\n- ${q}\n\nJust reply to this email and I'll send your quote straight over${callLine}.\n\nKind regards,\n${businessName}`,
+        replyText: r.text,
+        replyHtml: r.html,
         isComplete: false,
         notifyRep: false,
       });
@@ -139,23 +192,39 @@ export async function POST(request: Request) {
     });
 
     if (assessment.status === "info_required") {
-      const asks = assessment.missing.map((m) => `- ${m}`).join("\n");
+      const r = renderReply(
+        displayName,
+        [
+          `Thanks for the details about your ${intent.summary || "asbestos job"}. To finish your fixed-price quote, could you let me know:`,
+          `Reply to this email with that and I'll send the quote straight over${callLine}.`,
+        ],
+        assessment.missing,
+        businessName,
+      );
       await saveLead("awaiting_info", `Awaiting: ${assessment.missing.join("; ")}. Service: ${intent.identified_service}.`);
       return NextResponse.json({
         action: "ask",
         replySubject,
-        replyText: `Hi ${displayName},\n\nThanks for the details about your ${intent.summary || "asbestos job"}. To finish your fixed-price quote, could you let me know:\n\n${asks}\n\nReply to this email with that and I'll send the quote straight over${callLine}.\n\nKind regards,\n${businessName}`,
+        replyText: r.text,
+        replyHtml: r.html,
         isComplete: false,
         notifyRep: false,
       });
     }
 
     if (assessment.status === "unquotable") {
+      const r = renderReply(
+        displayName,
+        [`Thanks for your enquiry. A member of our team will be in touch shortly to help with this${callLine}.`],
+        null,
+        businessName,
+      );
       await saveLead("new", `Email enquiry (not auto-priceable): ${intent.summary}`);
       return NextResponse.json({
         action: "handoff",
         replySubject,
-        replyText: `Hi ${displayName},\n\nThanks for your enquiry. A member of our team will be in touch shortly to help with this${callLine}.\n\nKind regards,\n${businessName}`,
+        replyText: r.text,
+        replyHtml: r.html,
         isComplete: false,
         notifyRep: true,
         notifyText: `Email lead needs review — ${fromEmail}. ${intent.summary}`,
@@ -168,6 +237,35 @@ export async function POST(request: Request) {
     const line = quote.line_items[0];
     const lineText = line ? `${line.description} — ${line.quantity} ${line.unit} — ${money(line.total_gbp)}` : "";
 
+    const replyText = [
+      `Hi ${displayName},`,
+      "",
+      `Thank you — here is your fixed-price quotation (ref ${quoteRef}):`,
+      "",
+      lineText,
+      `Subtotal ${money(quote.subtotal_gbp)} · VAT ${money(quote.vat_gbp)} · Total (inc. VAT) ${money(quote.total_gbp)}`,
+      "",
+      `This quote is valid for ${quote.validity_days} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply${callLine}.`,
+      "",
+      "Kind regards,",
+      businessName,
+    ].join("\n");
+
+    const replyHtml = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222">
+<p>Hi ${escapeHtml(displayName)},</p>
+<p>Thank you — here is your fixed-price quotation (ref <strong>${escapeHtml(quoteRef)}</strong>):</p>
+<table style="border-collapse:collapse;font-size:14px;margin:8px 0 4px">
+<tr>
+<td style="padding:6px 16px 6px 0">${escapeHtml(line ? line.description : "")}</td>
+<td style="padding:6px 16px;color:#555">${line ? `${line.quantity} ${escapeHtml(line.unit)}` : ""}</td>
+<td style="padding:6px 0;text-align:right">${money(line ? line.total_gbp : 0)}</td>
+</tr>
+</table>
+<p style="margin:4px 0">Subtotal ${money(quote.subtotal_gbp)} &middot; VAT ${money(quote.vat_gbp)} &middot; <strong>Total (inc. VAT) ${money(quote.total_gbp)}</strong></p>
+<p>This quote is valid for ${quote.validity_days} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply${escapeHtml(callLine)}.</p>
+<p>Kind regards,<br>${escapeHtml(businessName)}</p>
+</div>`;
+
     await saveLead("quoted", buildLeadDetailsFromQuote(quote, intent.summary), {
       quote_ref: quoteRef,
       quote_total_gbp: quote.total_gbp,
@@ -179,7 +277,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       action: "quote",
       replySubject,
-      replyText: `Hi ${displayName},\n\nThank you — here is your fixed-price quotation (ref ${quoteRef}):\n\n${lineText}\nSubtotal ${money(quote.subtotal_gbp)} · VAT ${money(quote.vat_gbp)} · Total (inc. VAT) ${money(quote.total_gbp)}\n\nThis quote is valid for ${quote.validity_days} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply${callLine}.\n\nKind regards,\n${businessName}`,
+      replyText,
+      replyHtml,
       isComplete: true,
       notifyRep: true,
       notifyText: `Qualified & quoted — ${displayName} (${fromEmail}). ${intent.identified_service}: ${money(quote.total_gbp)} inc. VAT (ref ${quoteRef}).`,
