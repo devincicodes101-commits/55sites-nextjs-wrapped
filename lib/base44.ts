@@ -157,8 +157,8 @@ export async function createQuoteInBase44(payload: QuoteLeadPayload) {
     quote_emailed: payload.quote_emailed,
   });
 
-  if (!record.phone) {
-    throw new Error("Phone is required to create a Base44 lead");
+  if (!record.phone && !record.email) {
+    throw new Error("Phone or email is required to create a Base44 lead");
   }
   if (!record.first_name) {
     throw new Error("first_name is required to create a Base44 lead");
