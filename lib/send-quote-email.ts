@@ -109,6 +109,71 @@ export async function sendQuoteEmail(input: {
   return { sent: true, id: data.id };
 }
 
+export function buildMissingInfoEmailHtml(input: {
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  service: string;
+  missing: string[];
+}): string {
+  const items = input.missing.map((m) => `<li>${m}</li>`).join("");
+  return `
+  <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#222">
+    <h1 style="font-size:22px;margin:0 0 8px">${input.businessName}</h1>
+    <p style="margin:0 0 24px;color:#666">Your quote request for ${input.service} in ${input.city}</p>
+    <p>Dear ${input.customerName},</p>
+    <p>Thank you for your enquiry about <strong>${input.service}</strong>. To prepare your fixed-price quote, we just need a little more information:</p>
+    <ul>${items}</ul>
+    <p>Simply reply to this email with these details and we'll send your quote straight over — usually within a few minutes.</p>
+    <p style="margin-top:24px">Prefer to talk it through? Call us on <strong>${input.phoneDisplay}</strong>.</p>
+    <p style="color:#888;font-size:12px;margin-top:32px">${input.businessName} — ${input.city}.</p>
+  </div>`;
+}
+
+/**
+ * Emails the customer to request the information still needed before we can
+ * produce a quote (e.g. area in m² for a per-m² service). No quote is generated
+ * until they reply with the missing details.
+ */
+export async function sendMissingInfoEmail(input: {
+  to: string;
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  service: string;
+  missing: string[];
+}): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "Email not configured (RESEND_API_KEY / QUOTE_FROM_EMAIL)" };
+  }
+
+  const from = process.env.QUOTE_FROM_EMAIL!;
+  const apiKey = process.env.RESEND_API_KEY!;
+  const html = buildMissingInfoEmailHtml(input);
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [input.to],
+      subject: `${input.businessName} — a little more info needed for your ${input.service} quote`,
+      html,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+  if (!res.ok) {
+    return { sent: false, error: data.message || `Resend error ${res.status}` };
+  }
+  return { sent: true };
+}
+
 /**
  * Internal alert so callback / contact enquiries are not lost if CRM write fails.
  * Sends to LEADS_NOTIFY_EMAIL, or the address portion of QUOTE_FROM_EMAIL.
