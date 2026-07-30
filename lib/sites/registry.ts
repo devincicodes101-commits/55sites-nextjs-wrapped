@@ -127,6 +127,18 @@ function normalizeHost(host: string): string {
   return host.split(":")[0].replace(/^www\./, "").toLowerCase();
 }
 
+/**
+ * Resolve a business config from an email recipient (or bare domain) —
+ * e.g. "info@bathasbestosabatement.co.uk" -> Bath. Returns null if the domain
+ * is not a registered site. Lets the email agent sign replies as the correct
+ * brand across all domains from a single workflow, with no per-business config.
+ */
+export function resolveSiteByRecipient(recipient: string): SiteConfig | null {
+  if (!recipient) return null;
+  const domain = recipient.includes("@") ? recipient.split("@").pop() ?? "" : recipient;
+  return registry[normalizeHost(domain.trim())] ?? null;
+}
+
 export function getSiteConfig(): SiteConfig {
   const host = headers().get("host") ?? "";
   const base = registry[normalizeHost(host)] ?? DEFAULT_CONFIG;
