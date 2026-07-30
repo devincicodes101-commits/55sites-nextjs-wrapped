@@ -8,6 +8,7 @@ import {
 import { loadCatalogServices } from "@/lib/catalog-pricing";
 import { extractEmailIntent, isEmailAgentConfigured } from "@/lib/email-agent";
 import { assessEnquiry } from "@/lib/enquiry-quote";
+import { resolveSiteByRecipient } from "@/lib/sites/registry";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -90,9 +91,15 @@ export async function POST(request: Request) {
   const fromName = String(body.fromName || "").trim();
   const subject = String(body.subject || "").trim();
   const threadText = String(body.threadText || "").trim();
-  const businessName = String(body.businessName || "").trim() || "Asbestos Teams";
-  const city = String(body.city || "").trim();
-  const phoneDisplay = String(body.phoneDisplay || "").trim();
+  const recipientEmail = String(body.recipientEmail || "").trim();
+
+  // Resolve the brand from the recipient domain (e.g. info@bathasbestosabatement.co.uk
+  // -> Bath), so one workflow signs correctly for all domains. Falls back to any
+  // values passed in the body, then to a generic default.
+  const site = resolveSiteByRecipient(recipientEmail);
+  const businessName = site?.businessName || String(body.businessName || "").trim() || "Asbestos Teams";
+  const phoneDisplay = site?.phoneDisplay || String(body.phoneDisplay || "").trim() || "";
+  const city = site?.city || String(body.city || "").trim();
 
   if (!fromEmail || !fromEmail.includes("@")) {
     return NextResponse.json({ error: "A valid fromEmail is required" }, { status: 400 });
