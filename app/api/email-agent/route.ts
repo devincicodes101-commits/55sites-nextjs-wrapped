@@ -54,6 +54,86 @@ function renderReply(
   };
 }
 
+/** Professional, per-brand HTML quotation email (logo, table, coloured total banner). */
+function brandedQuoteHtml(o: {
+  businessName: string;
+  logoLetter: string;
+  primary: string;
+  dark: string;
+  contactEmail: string;
+  phoneDisplay: string;
+  customerName: string;
+  quoteRef: string;
+  lineItems: { description: string; quantity: number; unit: string; total_gbp: number }[];
+  vat: number;
+  total: number;
+  validityDays: number;
+}): string {
+  const rows = o.lineItems
+    .map(
+      (li) => `
+      <tr>
+        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222">${escapeHtml(li.description)}</td>
+        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222;text-align:center">${li.quantity}</td>
+        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222;text-align:right">${money(li.total_gbp)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const contact = o.contactEmail
+    ? `<a href="mailto:${escapeHtml(o.contactEmail)}" style="color:#fff;text-decoration:underline">${escapeHtml(o.contactEmail)}</a>`
+    : escapeHtml(o.phoneDisplay);
+  const callLine = o.phoneDisplay ? ` or call us on ${escapeHtml(o.phoneDisplay)}` : "";
+
+  return `<div style="background:#f4f4f5;padding:24px 0;font-family:Arial,Helvetica,sans-serif">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
+    <tr><td style="background:${o.dark};padding:22px 24px">
+      <table role="presentation" width="100%"><tr>
+        <td style="vertical-align:middle">
+          <span style="display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;background:${o.primary};color:#fff;font-weight:bold;border-radius:6px;font-size:16px">${escapeHtml(o.logoLetter)}</span>
+          <span style="color:#fff;font-size:18px;font-weight:bold;margin-left:10px;vertical-align:middle">${escapeHtml(o.businessName)}</span>
+        </td>
+        <td style="text-align:right;color:#cbd5e1;font-size:13px;letter-spacing:2px;font-weight:bold;vertical-align:middle">QUOTATION</td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:24px 24px 8px">
+      <table role="presentation" width="100%"><tr>
+        <td style="font-size:11px;color:#888;letter-spacing:1px">PREPARED FOR<br><span style="font-size:15px;color:#222;font-weight:bold">${escapeHtml(o.customerName)}</span></td>
+        <td style="text-align:right;font-size:11px;color:#888;letter-spacing:1px">QUOTE NUMBER<br><span style="font-size:15px;color:#222;font-weight:bold">${escapeHtml(o.quoteRef)}</span></td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:12px 24px 4px;font-size:14px;color:#333;line-height:1.5">
+      <p style="margin:0 0 6px">Hi ${escapeHtml(o.customerName)},</p>
+      <p style="margin:0">Thank you for your enquiry. Please find your fixed-price quotation below.</p>
+    </td></tr>
+    <tr><td style="padding:16px 24px 0">
+      <table role="presentation" width="100%" style="border-collapse:collapse">
+        <tr style="background:#f9fafb">
+          <td style="padding:10px 20px;font-size:11px;color:#888;letter-spacing:1px">SERVICE</td>
+          <td style="padding:10px 20px;font-size:11px;color:#888;letter-spacing:1px;text-align:center">QTY</td>
+          <td style="padding:10px 20px;font-size:11px;color:#888;letter-spacing:1px;text-align:right">TOTAL</td>
+        </tr>
+        ${rows}
+        <tr><td colspan="2" style="padding:12px 20px;text-align:right;font-size:13px;color:#666">VAT (20%)</td><td style="padding:12px 20px;text-align:right;font-size:13px;color:#666">${money(o.vat)}</td></tr>
+      </table>
+    </td></tr>
+    <tr><td style="padding:8px 24px 20px">
+      <table role="presentation" width="100%" style="background:${o.primary};border-radius:6px"><tr>
+        <td style="padding:14px 20px;color:#fff;font-size:16px;font-weight:bold">Total (inc. VAT)</td>
+        <td style="padding:14px 20px;color:#fff;font-size:16px;font-weight:bold;text-align:right">${money(o.total)}</td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:0 24px 22px;font-size:13px;color:#666;line-height:1.5">
+      This quote is valid for ${o.validityDays} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply to this email${callLine}.
+    </td></tr>
+    <tr><td style="background:${o.primary};padding:16px 24px;text-align:center;color:#fff;font-size:13px">
+      Questions? Contact us at ${contact}<br>
+      <span style="font-size:11px;opacity:.85">Payment terms: payment on completion</span>
+    </td></tr>
+  </table>
+</div>`;
+}
+
 function makeQuoteRef(city: string) {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -258,20 +338,20 @@ export async function POST(request: Request) {
       businessName,
     ].join("\n");
 
-    const replyHtml = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222">
-<p>Hi ${escapeHtml(displayName)},</p>
-<p>Thank you — here is your fixed-price quotation (ref <strong>${escapeHtml(quoteRef)}</strong>):</p>
-<table style="border-collapse:collapse;font-size:14px;margin:8px 0 4px">
-<tr>
-<td style="padding:6px 16px 6px 0">${escapeHtml(line ? line.description : "")}</td>
-<td style="padding:6px 16px;color:#555">${line ? `${line.quantity} ${escapeHtml(line.unit)}` : ""}</td>
-<td style="padding:6px 0;text-align:right">${money(line ? line.total_gbp : 0)}</td>
-</tr>
-</table>
-<p style="margin:4px 0">Subtotal ${money(quote.subtotal_gbp)} &middot; VAT ${money(quote.vat_gbp)} &middot; <strong>Total (inc. VAT) ${money(quote.total_gbp)}</strong></p>
-<p>This quote is valid for ${quote.validity_days} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply${escapeHtml(callLine)}.</p>
-<p>Kind regards,<br>${escapeHtml(businessName)}</p>
-</div>`;
+    const replyHtml = brandedQuoteHtml({
+      businessName,
+      logoLetter: site?.logoLetter || businessName.charAt(0).toUpperCase() || "A",
+      primary: site?.theme?.primary || "#c2410c",
+      dark: site?.theme?.dark || "#1f2937",
+      contactEmail: site?.email || "",
+      phoneDisplay,
+      customerName: displayName,
+      quoteRef,
+      lineItems: quote.line_items,
+      vat: quote.vat_gbp,
+      total: quote.total_gbp,
+      validityDays: quote.validity_days,
+    });
 
     await saveLead("quoted", buildLeadDetailsFromQuote(quote, intent.summary), {
       quote_ref: quoteRef,
