@@ -8,6 +8,7 @@ import {
 import { loadCatalogServices } from "@/lib/catalog-pricing";
 import { isChatConfigured, runChatTurn, type ChatMessage } from "@/lib/chat-agent";
 import { assessEnquiry } from "@/lib/enquiry-quote";
+import { sendBrandedQuoteEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 
 export const runtime = "nodejs";
@@ -96,6 +97,28 @@ export async function POST(request: Request) {
     const quote = assessment.quote;
     const quoteRef = makeQuoteRef(site.city);
 
+    // Email the branded quote to the visitor (if we captured an email).
+    let emailSent = false;
+    if (turn.customer_email) {
+      try {
+        const r = await sendBrandedQuoteEmail({
+          to: turn.customer_email,
+          businessName: site.businessName,
+          logoLetter: site.logoLetter || site.businessName.charAt(0).toUpperCase() || "A",
+          primary: site.theme?.primary || "#c2410c",
+          dark: site.theme?.dark || "#1f2937",
+          contactEmail: site.email || "",
+          phoneDisplay: site.phoneDisplay,
+          customerName: turn.customer_name || "there",
+          quoteRef,
+          quote,
+        });
+        emailSent = r.sent;
+      } catch (err) {
+        console.error("chat quote email failed (continuing):", err);
+      }
+    }
+
     // Save the lead if we captured an email.
     if (turn.customer_email && isBase44Configured()) {
       const { firstName, lastName } = splitPersonName(turn.customer_name || "");
@@ -113,7 +136,7 @@ export async function POST(request: Request) {
           quote_total_gbp: quote.total_gbp,
           quote_json: JSON.stringify(quote),
           survey_summary: quote.survey_summary,
-          quote_emailed: false,
+          quote_emailed: emailSent,
           lead_source: "chat_agent",
           status: "quoted",
         });
