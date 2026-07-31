@@ -8,6 +8,112 @@ function formatMoney(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
+function esc(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Professional, per-brand HTML quotation (logo badge, table, coloured total banner). */
+export function buildBrandedQuoteHtml(o: {
+  businessName: string;
+  logoLetter: string;
+  primary: string;
+  dark: string;
+  contactEmail: string;
+  phoneDisplay: string;
+  customerName: string;
+  quoteRef: string;
+  quote: GeneratedQuote;
+}): string {
+  const rows = o.quote.line_items
+    .map(
+      (li) => `
+      <tr>
+        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222">${esc(li.description)}</td>
+        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222;text-align:center">${li.quantity}</td>
+        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222;text-align:right">${formatMoney(li.total_gbp)}</td>
+      </tr>`,
+    )
+    .join("");
+  const contact = o.contactEmail
+    ? `<a href="mailto:${esc(o.contactEmail)}" style="color:#fff;text-decoration:underline">${esc(o.contactEmail)}</a>`
+    : esc(o.phoneDisplay);
+  const callLine = o.phoneDisplay ? ` or call us on ${esc(o.phoneDisplay)}` : "";
+
+  return `<div style="background:#f4f4f5;padding:24px 0;font-family:Arial,Helvetica,sans-serif">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden">
+    <tr><td style="background:${o.dark};padding:22px 24px"><table role="presentation" width="100%"><tr>
+      <td style="vertical-align:middle">
+        <span style="display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;background:${o.primary};color:#fff;font-weight:bold;border-radius:6px;font-size:16px">${esc(o.logoLetter)}</span>
+        <span style="color:#fff;font-size:18px;font-weight:bold;margin-left:10px;vertical-align:middle">${esc(o.businessName)}</span>
+      </td>
+      <td style="text-align:right;color:#cbd5e1;font-size:13px;letter-spacing:2px;font-weight:bold;vertical-align:middle">QUOTATION</td>
+    </tr></table></td></tr>
+    <tr><td style="padding:24px 24px 8px"><table role="presentation" width="100%"><tr>
+      <td style="font-size:11px;color:#888;letter-spacing:1px">PREPARED FOR<br><span style="font-size:15px;color:#222;font-weight:bold">${esc(o.customerName)}</span></td>
+      <td style="text-align:right;font-size:11px;color:#888;letter-spacing:1px">QUOTE NUMBER<br><span style="font-size:15px;color:#222;font-weight:bold">${esc(o.quoteRef)}</span></td>
+    </tr></table></td></tr>
+    <tr><td style="padding:12px 24px 4px;font-size:14px;color:#333;line-height:1.5">
+      <p style="margin:0 0 6px">Hi ${esc(o.customerName)},</p>
+      <p style="margin:0">Thank you for your enquiry. Please find your fixed-price quotation below.</p>
+    </td></tr>
+    <tr><td style="padding:16px 24px 0"><table role="presentation" width="100%" style="border-collapse:collapse">
+      <tr style="background:#f9fafb">
+        <td style="padding:10px 20px;font-size:11px;color:#888;letter-spacing:1px">SERVICE</td>
+        <td style="padding:10px 20px;font-size:11px;color:#888;letter-spacing:1px;text-align:center">QTY</td>
+        <td style="padding:10px 20px;font-size:11px;color:#888;letter-spacing:1px;text-align:right">TOTAL</td>
+      </tr>
+      ${rows}
+      <tr><td colspan="2" style="padding:12px 20px;text-align:right;font-size:13px;color:#666">VAT (20%)</td><td style="padding:12px 20px;text-align:right;font-size:13px;color:#666">${formatMoney(o.quote.vat_gbp)}</td></tr>
+    </table></td></tr>
+    <tr><td style="padding:8px 24px 20px"><table role="presentation" width="100%" style="background:${o.primary};border-radius:6px"><tr>
+      <td style="padding:14px 20px;color:#fff;font-size:16px;font-weight:bold">Total (inc. VAT)</td>
+      <td style="padding:14px 20px;color:#fff;font-size:16px;font-weight:bold;text-align:right">${formatMoney(o.quote.total_gbp)}</td>
+    </tr></table></td></tr>
+    <tr><td style="padding:0 24px 22px;font-size:13px;color:#666;line-height:1.5">
+      This quote is valid for ${o.quote.validity_days} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply to this email${callLine}.
+    </td></tr>
+    <tr><td style="background:${o.primary};padding:16px 24px;text-align:center;color:#fff;font-size:13px">
+      Questions? Contact us at ${contact}<br><span style="font-size:11px;opacity:.85">Payment terms: payment on completion</span>
+    </td></tr>
+  </table>
+</div>`;
+}
+
+/** Sends a branded quotation via Resend (used by the website chat agent). */
+export async function sendBrandedQuoteEmail(input: {
+  to: string;
+  businessName: string;
+  logoLetter: string;
+  primary: string;
+  dark: string;
+  contactEmail: string;
+  phoneDisplay: string;
+  customerName: string;
+  quoteRef: string;
+  quote: GeneratedQuote;
+}): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "Email not configured (RESEND_API_KEY / QUOTE_FROM_EMAIL)" };
+  }
+  const from = process.env.QUOTE_FROM_EMAIL!;
+  const apiKey = process.env.RESEND_API_KEY!;
+  const html = buildBrandedQuoteHtml(input);
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to: [input.to],
+      subject: `${input.businessName} — Your Asbestos Quotation ${input.quoteRef}`,
+      html,
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { message?: string };
+  if (!res.ok) return { sent: false, error: data.message || `Resend error ${res.status}` };
+  return { sent: true };
+}
+
 export function buildQuoteEmailHtml(input: {
   customerName: string;
   businessName: string;
