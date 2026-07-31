@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import ThemeStyle from "@/components/ThemeStyle";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
+import ChatAgent from "@/components/ChatAgent";
 import { getSiteConfig } from "@/lib/sites/registry";
 import "./globals.css";
 import "./design-variants.css";
@@ -30,6 +31,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SiteHeader siteConfig={siteConfig} />
         <main>{children}</main>
         <SiteFooter />
+        <ChatAgent
+          businessName={siteConfig.businessName}
+          primary={siteConfig.theme?.primary ?? "#c2410c"}
+          dark={siteConfig.theme?.dark ?? "#1f2937"}
+        />
       </body>
     </html>
   );
