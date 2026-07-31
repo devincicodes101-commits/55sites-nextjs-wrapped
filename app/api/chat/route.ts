@@ -126,7 +126,7 @@ export async function POST(request: Request) {
         await createQuoteInBase44({
           firstName: firstName || "Chat enquiry",
           lastName,
-          phone: "",
+          phone: turn.customer_phone || "",
           email: turn.customer_email,
           service: turn.service,
           details: buildLeadDetailsFromQuote(quote),

@@ -23,6 +23,7 @@ export type ChatTurn = {
   quantity: number | null;
   customer_name: string | null;
   customer_email: string | null;
+  customer_phone: string | null;
 };
 
 function num(v: unknown): number | null {
@@ -55,20 +56,21 @@ How to run the conversation:
 - Greet briefly and find out which service they need.
 - Map their words to the closest catalog service above. If it could match more than one (e.g. a garage roof could be single or double), ask which.
 - Ask for the measurement that service needs: a "per_sqm" service needs the area in m²; a "per_unit" service needs a count; a "per_lm" service needs a length in linear metres; a "fixed" service needs no measurement.
-- Also collect the visitor's name and email so we can send the quote.
+- Also collect the visitor's name, email, AND phone number so we can send the quote and follow up.
 - Keep replies short, warm, and helpful — one question at a time. Never invent prices; a quote is produced automatically once you have enough.
-- If they ask something you can't price (survey, testing, demolition, general enquiry), collect their name + email and tell them a specialist will follow up.
+- If they ask something you can't price (survey, testing, demolition, general enquiry), collect their name, email + phone and tell them a specialist will follow up.
 
 Respond ONLY as strict JSON (no prose, no markdown):
 {
   "reply": "<your next message to the visitor>",
-  "ready_to_quote": <true ONLY when you know the exact catalog service, its required measurement (or it's fixed-price), AND the visitor's email>,
+  "ready_to_quote": <true ONLY when you know the exact catalog service, its required measurement (or it's fixed-price), AND the visitor's email AND phone>,
   "service": "<exact catalog name from the list, or ''>",
   "area_sqm": <number or null>,
   "length_lm": <number or null>,
   "quantity": <number or null>,
   "customer_name": "<name or null>",
-  "customer_email": "<email or null>"
+  "customer_email": "<email or null>",
+  "customer_phone": "<phone or null>"
 }`;
 
   const messages = [
@@ -108,6 +110,8 @@ Respond ONLY as strict JSON (no prose, no markdown):
         typeof p.customer_name === "string" && p.customer_name.trim() ? p.customer_name.trim() : null,
       customer_email:
         typeof p.customer_email === "string" && p.customer_email.trim() ? p.customer_email.trim() : null,
+      customer_phone:
+        typeof p.customer_phone === "string" && p.customer_phone.trim() ? p.customer_phone.trim() : null,
     };
   } catch {
     return null;
