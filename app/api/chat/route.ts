@@ -7,6 +7,7 @@ import {
 } from "@/lib/base44";
 import { loadCatalogServices } from "@/lib/catalog-pricing";
 import { isChatConfigured, runChatTurn, type ChatMessage } from "@/lib/chat-agent";
+import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
 import { assessEnquiry } from "@/lib/enquiry-quote";
 import { sendBrandedQuoteEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
@@ -97,27 +98,39 @@ export async function POST(request: Request) {
     const quote = assessment.quote;
     const quoteRef = makeQuoteRef(site.city);
 
-    // Email the branded quote to the visitor (if we captured an email).
+    // Send the quote. Prefer the CRM (branded quote + Accept button + diary +
+    // stored in Quotes, like a real rep); fall back to our own email otherwise.
     let emailSent = false;
     if (turn.customer_email) {
-      try {
-        const r = await sendBrandedQuoteEmail({
-          to: turn.customer_email,
-          businessName: site.businessName,
-          logoLetter: site.logoLetter || site.businessName.charAt(0).toUpperCase() || "A",
-          primary: site.theme?.primary || "#c2410c",
-          dark: site.theme?.dark || "#1f2937",
-          contactEmail: site.email || "",
-          phoneDisplay: site.phoneDisplay,
+      if (isCrmConfigured()) {
+        const r = await createAndSendCrmQuote({
           customerName: turn.customer_name || "there",
+          customerEmail: turn.customer_email,
           customerAddress: turn.customer_address || undefined,
-          quoteRef,
           quote,
-          catalog,
+          salesAgentName: "AI Chat Assistant",
         });
         emailSent = r.sent;
-      } catch (err) {
-        console.error("chat quote email failed (continuing):", err);
+      } else {
+        try {
+          const r = await sendBrandedQuoteEmail({
+            to: turn.customer_email,
+            businessName: site.businessName,
+            logoLetter: site.logoLetter || site.businessName.charAt(0).toUpperCase() || "A",
+            primary: site.theme?.primary || "#c2410c",
+            dark: site.theme?.dark || "#1f2937",
+            contactEmail: site.email || "",
+            phoneDisplay: site.phoneDisplay,
+            customerName: turn.customer_name || "there",
+            customerAddress: turn.customer_address || undefined,
+            quoteRef,
+            quote,
+            catalog,
+          });
+          emailSent = r.sent;
+        } catch (err) {
+          console.error("chat quote email failed (continuing):", err);
+        }
       }
     }
 
