@@ -91,6 +91,7 @@ export async function sendBrandedQuoteEmail(input: {
   contactEmail: string;
   phoneDisplay: string;
   customerName: string;
+  customerAddress?: string;
   quoteRef: string;
   quote: GeneratedQuote;
   catalog?: CatalogService[];
@@ -104,6 +105,7 @@ export async function sendBrandedQuoteEmail(input: {
     quote: input.quote,
     customerName: input.customerName,
     customerEmail: input.to,
+    customerAddress: input.customerAddress,
     quoteRef: input.quoteRef,
     catalog: input.catalog,
   });

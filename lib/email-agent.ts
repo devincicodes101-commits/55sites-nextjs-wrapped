@@ -26,6 +26,7 @@ export type EmailIntent = {
   quantity: number | null;
   customer_name: string | null;
   customer_phone: string | null;
+  customer_address: string | null;
   summary: string;
 };
 
@@ -72,6 +73,7 @@ Extract the customer's intent across the WHOLE thread (they may have added detai
   "quantity": <number or null, if a count of items (sheets/bags/units) is stated>,
   "customer_name": "<name if known, else null>",
   "customer_phone": "<phone if given, else null>",
+  "customer_address": "<full site address incl. postcode if given, else null>",
   "summary": "<one short sentence describing what they want>"
 }`;
 
@@ -120,6 +122,8 @@ Extract the customer's intent across the WHOLE thread (they may have added detai
         typeof p.customer_name === "string" && p.customer_name.trim() ? p.customer_name.trim() : null,
       customer_phone:
         typeof p.customer_phone === "string" && p.customer_phone.trim() ? p.customer_phone.trim() : null,
+      customer_address:
+        typeof p.customer_address === "string" && p.customer_address.trim() ? p.customer_address.trim() : null,
       summary: typeof p.summary === "string" ? p.summary.trim() : "",
     };
   } catch {

@@ -186,6 +186,7 @@ export function buildQuoteDocFromQuote(input: {
   quote: GeneratedQuote;
   customerName: string;
   customerEmail: string;
+  customerAddress?: string;
   quoteRef: string;
   dateDisplay?: string;
   catalog?: CatalogService[];
@@ -204,6 +205,7 @@ export function buildQuoteDocFromQuote(input: {
   return buildQuoteDocumentHtml({
     customerName: input.customerName,
     customerEmail: input.customerEmail,
+    customerAddress: input.customerAddress,
     quoteRef: input.quoteRef,
     dateDisplay: input.dateDisplay ?? todayDisplay(),
     lineItems,
