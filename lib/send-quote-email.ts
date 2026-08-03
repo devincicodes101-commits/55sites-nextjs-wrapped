@@ -1,4 +1,6 @@
+import type { CatalogService } from "./catalog-pricing";
 import type { GeneratedQuote } from "./gemini-quote";
+import { buildQuoteDocFromQuote } from "./quote-document";
 
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY && process.env.QUOTE_FROM_EMAIL);
@@ -91,13 +93,20 @@ export async function sendBrandedQuoteEmail(input: {
   customerName: string;
   quoteRef: string;
   quote: GeneratedQuote;
+  catalog?: CatalogService[];
 }): Promise<{ sent: boolean; error?: string }> {
   if (!isEmailConfigured()) {
     return { sent: false, error: "Email not configured (RESEND_API_KEY / QUOTE_FROM_EMAIL)" };
   }
   const from = process.env.QUOTE_FROM_EMAIL!;
   const apiKey = process.env.RESEND_API_KEY!;
-  const html = buildBrandedQuoteHtml(input);
+  const html = buildQuoteDocFromQuote({
+    quote: input.quote,
+    customerName: input.customerName,
+    customerEmail: input.to,
+    quoteRef: input.quoteRef,
+    catalog: input.catalog,
+  });
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -105,7 +114,7 @@ export async function sendBrandedQuoteEmail(input: {
     body: JSON.stringify({
       from,
       to: [input.to],
-      subject: `${input.businessName} — Your Asbestos Quotation ${input.quoteRef}`,
+      subject: `Asbestos UK Teams Ltd — Your Asbestos Quotation ${input.quoteRef}`,
       html,
     }),
   });
@@ -184,6 +193,7 @@ export async function sendQuoteEmail(input: {
   phoneDisplay: string;
   quote: GeneratedQuote;
   quoteRef: string;
+  catalog?: CatalogService[];
 }): Promise<{ sent: boolean; id?: string; error?: string }> {
   if (!isEmailConfigured()) {
     return { sent: false, error: "Email not configured (RESEND_API_KEY / QUOTE_FROM_EMAIL)" };
@@ -191,7 +201,13 @@ export async function sendQuoteEmail(input: {
 
   const from = process.env.QUOTE_FROM_EMAIL!;
   const apiKey = process.env.RESEND_API_KEY!;
-  const html = buildQuoteEmailHtml(input);
+  const html = buildQuoteDocFromQuote({
+    quote: input.quote,
+    customerName: input.customerName,
+    customerEmail: input.to,
+    quoteRef: input.quoteRef,
+    catalog: input.catalog,
+  });
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -202,7 +218,7 @@ export async function sendQuoteEmail(input: {
     body: JSON.stringify({
       from,
       to: [input.to],
-      subject: `${input.businessName} — Asbestos Works Quotation ${input.quoteRef}`,
+      subject: `Asbestos UK Teams Ltd — Asbestos Works Quotation ${input.quoteRef}`,
       html,
     }),
   });
