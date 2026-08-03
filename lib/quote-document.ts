@@ -64,8 +64,8 @@ export function buildQuoteDocumentHtml(input: {
   const c = QUOTE_COMPANY;
 
   const logo = c.logoUrl
-    ? `<img src="${esc(c.logoUrl)}" alt="${esc(c.name)}" width="150" style="display:block;max-width:150px;height:auto" />`
-    : `<div style="color:#fff;font-size:20px;font-weight:800;letter-spacing:1px">ASBESTOS <span style="color:${c.primary}">UK</span> TEAMS LTD</div>`;
+    ? `<img src="${esc(c.logoUrl)}" alt="${esc(c.name)}" width="108" style="display:block;max-width:108px;height:auto;border-radius:8px" />`
+    : `<div style="color:#fff;font-size:18px;font-weight:800;letter-spacing:1px">ASBESTOS <span style="color:${c.primary}">UK</span> TEAMS LTD</div>`;
 
   const serviceBlocks = input.lineItems
     .map(
@@ -100,8 +100,14 @@ export function buildQuoteDocumentHtml(input: {
     <!-- Header -->
     <tr><td style="background:${c.dark};padding:22px 26px">
       <table role="presentation" width="100%"><tr>
-        <td style="vertical-align:middle">${logo}</td>
-        <td style="text-align:right;vertical-align:middle">
+        <td width="116" style="vertical-align:top">${logo}</td>
+        <td style="vertical-align:top;padding-left:16px">
+          <div style="color:#fff;font-size:18px;font-weight:bold">${esc(c.name)}</div>
+          <div style="color:#cbd5e1;font-size:12px;margin-top:2px">${esc(c.slogan)}</div>
+          <div style="color:#94a3b8;font-size:11px;margin-top:6px;line-height:1.5">${esc(c.address)}</div>
+          <div style="color:#94a3b8;font-size:11px;line-height:1.5">${esc(c.phone)} · <a href="mailto:${esc(c.email)}" style="color:#94a3b8;text-decoration:none">${esc(c.email)}</a></div>
+        </td>
+        <td style="text-align:right;vertical-align:top;white-space:nowrap">
           <div style="color:#cbd5e1;font-size:14px;letter-spacing:3px;font-weight:bold">QUOTATION</div>
           <div style="color:#94a3b8;font-size:12px;margin-top:4px">${esc(input.quoteRef)}</div>
         </td>
