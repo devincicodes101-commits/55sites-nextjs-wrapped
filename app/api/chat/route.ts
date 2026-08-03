@@ -110,6 +110,7 @@ export async function POST(request: Request) {
           contactEmail: site.email || "",
           phoneDisplay: site.phoneDisplay,
           customerName: turn.customer_name || "there",
+          customerAddress: turn.customer_address || undefined,
           quoteRef,
           quote,
           catalog,

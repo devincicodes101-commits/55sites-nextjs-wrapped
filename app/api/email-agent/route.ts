@@ -343,6 +343,7 @@ export async function POST(request: Request) {
       quote,
       customerName: displayName,
       customerEmail: fromEmail,
+      customerAddress: intent.customer_address || undefined,
       quoteRef,
       catalog,
     });
