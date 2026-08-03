@@ -7,6 +7,7 @@ import {
 } from "@/lib/base44";
 import { loadCatalogServices } from "@/lib/catalog-pricing";
 import { extractEmailIntent, isEmailAgentConfigured } from "@/lib/email-agent";
+import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
 import { assessEnquiry } from "@/lib/enquiry-quote";
 import { buildQuoteDocFromQuote } from "@/lib/quote-document";
 import { resolveSiteByRecipient } from "@/lib/sites/registry";
@@ -325,28 +326,55 @@ export async function POST(request: Request) {
     const line = quote.line_items[0];
     const lineText = line ? `${line.description} — ${line.quantity} ${line.unit} — ${money(line.total_gbp)}` : "";
 
-    const replyText = [
-      `Hi ${displayName},`,
-      "",
-      `Thank you — here is your fixed-price quotation (ref ${quoteRef}):`,
-      "",
-      lineText,
-      `Subtotal ${money(quote.subtotal_gbp)} · VAT ${money(quote.vat_gbp)} · Total (inc. VAT) ${money(quote.total_gbp)}`,
-      "",
-      `This quote is valid for ${quote.validity_days} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply${callLine}.`,
-      "",
-      "Kind regards,",
-      businessName,
-    ].join("\n");
+    // Prefer the CRM: create the quote there and send it (branded quote + Accept
+    // button + choose-date/diary + stored in Quotes, like a real rep). When the
+    // CRM sends the formal quote, keep the in-thread reply short; otherwise the
+    // reply itself is the full quote document.
+    let crmSent = false;
+    if (isCrmConfigured()) {
+      const r = await createAndSendCrmQuote({
+        customerName: displayName,
+        customerEmail: fromEmail,
+        customerAddress: intent.customer_address || undefined,
+        quote,
+        salesAgentName: "AI Email Assistant",
+      });
+      crmSent = r.sent;
+    }
 
-    const replyHtml = buildQuoteDocFromQuote({
-      quote,
-      customerName: displayName,
-      customerEmail: fromEmail,
-      customerAddress: intent.customer_address || undefined,
-      quoteRef,
-      catalog,
-    });
+    const replyText = crmSent
+      ? [
+          `Hi ${displayName},`,
+          "",
+          `Thank you — I've prepared your fixed-price quotation (${money(quote.total_gbp)} inc. VAT) and sent it to ${fromEmail}. It includes a button to accept and choose a date for the work${callLine}.`,
+          "",
+          "Kind regards,",
+          businessName,
+        ].join("\n")
+      : [
+          `Hi ${displayName},`,
+          "",
+          `Thank you — here is your fixed-price quotation (ref ${quoteRef}):`,
+          "",
+          lineText,
+          `Subtotal ${money(quote.subtotal_gbp)} · VAT ${money(quote.vat_gbp)} · Total (inc. VAT) ${money(quote.total_gbp)}`,
+          "",
+          `This quote is valid for ${quote.validity_days} days and is based on the information you've provided; a site visit may refine it. To go ahead or arrange a visit, just reply${callLine}.`,
+          "",
+          "Kind regards,",
+          businessName,
+        ].join("\n");
+
+    const replyHtml = crmSent
+      ? `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#222"><p>Hi ${escapeHtml(displayName)},</p><p>Thank you — I've prepared your fixed-price quotation (<strong>${money(quote.total_gbp)}</strong> inc. VAT) and sent it to ${escapeHtml(fromEmail)}. It includes a button to accept and choose a date for the work${escapeHtml(callLine)}.</p><p>Kind regards,<br>${escapeHtml(businessName)}</p></div>`
+      : buildQuoteDocFromQuote({
+          quote,
+          customerName: displayName,
+          customerEmail: fromEmail,
+          customerAddress: intent.customer_address || undefined,
+          quoteRef,
+          catalog,
+        });
 
     await saveLead("quoted", buildLeadDetailsFromQuote(quote, intent.summary), {
       quote_ref: quoteRef,
