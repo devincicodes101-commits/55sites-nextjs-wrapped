@@ -36,6 +36,10 @@ export type CrmQuoteInput = {
 };
 
 /** Create a Quote record in the CRM. Returns the new quote id, or null on failure. */
+function makeCrmQuoteNumber(): string {
+  return `QT-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+}
+
 export async function createCrmQuote(input: CrmQuoteInput): Promise<string | null> {
   try {
     const appId = process.env.BASE44_CRM_APP_ID!;
@@ -48,12 +52,17 @@ export async function createCrmQuote(input: CrmQuoteInput): Promise<string | nul
       description: li.description,
     }));
 
+    // Strip a trailing placeholder last-name (e.g. "Test -" -> "Test").
+    const customerName = input.customerName.replace(/\s*-\s*$/, "").trim() || input.customerName;
+
     const res = await fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Quote`, {
       method: "POST",
       headers: crmHeaders(),
       body: JSON.stringify({
+        // The CRM auto-numbers quotes made in its UI, but not via the API — set one.
+        quote_number: makeCrmQuoteNumber(),
         client_type: input.clientType || "residential",
-        customer_name: input.customerName,
+        customer_name: customerName,
         customer_email: input.customerEmail,
         customer_address: input.customerAddress || "",
         subtotal: input.quote.subtotal_gbp,
