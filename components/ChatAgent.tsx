@@ -36,12 +36,20 @@ export default function ChatAgent({
   const [quote, setQuote] = useState<QuoteCard | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Survey-report upload (Task B) inside the chat.
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [upName, setUpName] = useState("");
+  const [upEmail, setUpEmail] = useState("");
+  const [upPhone, setUpPhone] = useState("");
+  const [upFile, setUpFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     if (open && messages.length === 0) {
       setMessages([
         {
           role: "assistant",
-          content: `Hi! 👋 I'm the ${businessName} assistant. Tell me what asbestos work you need and I'll get you an instant fixed-price quote.`,
+          content: `Hi! 👋 I'm the ${businessName} assistant. Tell me what asbestos work you need — or tap 📎 to upload a survey report — and I'll get you an instant fixed-price quote.`,
         },
       ]);
     }
@@ -50,6 +58,50 @@ export default function ChatAgent({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, quote, busy]);
+
+  async function uploadSurvey(e: FormEvent) {
+    e.preventDefault();
+    if (uploading || !upFile || !upName.trim() || !upEmail.trim()) return;
+    setUploading(true);
+    const parts = upName.trim().split(/\s+/);
+    const fd = new FormData();
+    fd.append("firstName", parts[0] || upName.trim());
+    fd.append("lastName", parts.slice(1).join(" ") || "-");
+    fd.append("phone", upPhone.trim() || "-");
+    fd.append("email", upEmail.trim());
+    fd.append("service", "Asbestos Survey");
+    fd.append("details", "Survey report uploaded via website chat");
+    fd.append("surveyReport", upFile);
+    setMessages((m) => [
+      ...m,
+      { role: "user", content: `📎 Uploaded survey report: ${upFile.name}` },
+    ]);
+    setUploadOpen(false);
+    try {
+      const res = await fetch("/api/survey-quote", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.quote) {
+        const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(data.totalGbp || data.quote.total_gbp);
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content: `Thanks! I've read your survey and prepared your fixed-price quotation (${total} inc. VAT). It's been sent to ${upEmail.trim()} with a link to accept and choose a date for the work. A copy is saved for our team.`,
+          },
+        ]);
+      } else {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: data.error || "Sorry, I couldn't read that survey. Please try another file or call us." },
+        ]);
+      }
+    } catch {
+      setMessages((m) => [...m, { role: "assistant", content: "Sorry, the upload failed. Please try again or call us." }]);
+    } finally {
+      setUploading(false);
+      setUpFile(null);
+    }
+  }
 
   async function send(e: FormEvent) {
     e.preventDefault();
@@ -188,8 +240,40 @@ export default function ChatAgent({
             )}
           </div>
 
+          {/* Survey upload panel */}
+          {uploadOpen && (
+            <form onSubmit={uploadSurvey} style={{ padding: 12, borderTop: "1px solid #eee", background: "#fafafa", display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#333" }}>Upload your asbestos survey for an instant quote</div>
+              <input value={upName} onChange={(e) => setUpName(e.target.value)} placeholder="Your name *" style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} />
+              <input value={upEmail} onChange={(e) => setUpEmail(e.target.value)} placeholder="Email *" type="email" style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} />
+              <input value={upPhone} onChange={(e) => setUpPhone(e.target.value)} placeholder="Phone" style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13 }} />
+              <input
+                type="file"
+                accept=".pdf,image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => setUpFile(e.target.files?.[0] ?? null)}
+                style={{ fontSize: 12 }}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="submit" disabled={uploading || !upFile || !upName.trim() || !upEmail.trim()} style={{ flex: 1, background: primary, color: "#fff", border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, cursor: "pointer" }}>
+                  {uploading ? "Reading survey…" : "Get my quote →"}
+                </button>
+                <button type="button" onClick={() => setUploadOpen(false)} style={{ background: "#eee", color: "#333", border: "none", borderRadius: 8, padding: "9px 14px", cursor: "pointer" }}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
           {/* Input */}
           <form onSubmit={send} style={{ display: "flex", gap: 8, padding: 10, borderTop: "1px solid #eee" }}>
+            <button
+              type="button"
+              title="Upload a survey report"
+              onClick={() => setUploadOpen((o) => !o)}
+              style={{ background: "#f0f0f0", color: "#333", border: "1px solid #ddd", borderRadius: 8, padding: "0 12px", fontSize: 16, cursor: "pointer" }}
+            >
+              📎
+            </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
