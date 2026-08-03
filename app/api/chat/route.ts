@@ -112,6 +112,7 @@ export async function POST(request: Request) {
           customerName: turn.customer_name || "there",
           quoteRef,
           quote,
+          catalog,
         });
         emailSent = r.sent;
       } catch (err) {

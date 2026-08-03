@@ -107,6 +107,7 @@ export async function POST(request: Request) {
       phoneDisplay: site.phoneDisplay,
       quote,
       quoteRef,
+      catalog,
     });
 
     await createQuoteInBase44({

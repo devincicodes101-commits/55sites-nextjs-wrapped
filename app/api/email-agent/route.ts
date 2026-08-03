@@ -8,6 +8,7 @@ import {
 import { loadCatalogServices } from "@/lib/catalog-pricing";
 import { extractEmailIntent, isEmailAgentConfigured } from "@/lib/email-agent";
 import { assessEnquiry } from "@/lib/enquiry-quote";
+import { buildQuoteDocFromQuote } from "@/lib/quote-document";
 import { resolveSiteByRecipient } from "@/lib/sites/registry";
 
 export const runtime = "nodejs";
@@ -338,19 +339,12 @@ export async function POST(request: Request) {
       businessName,
     ].join("\n");
 
-    const replyHtml = brandedQuoteHtml({
-      businessName,
-      logoLetter: site?.logoLetter || businessName.charAt(0).toUpperCase() || "A",
-      primary: site?.theme?.primary || "#c2410c",
-      dark: site?.theme?.dark || "#1f2937",
-      contactEmail: site?.email || "",
-      phoneDisplay,
+    const replyHtml = buildQuoteDocFromQuote({
+      quote,
       customerName: displayName,
+      customerEmail: fromEmail,
       quoteRef,
-      lineItems: quote.line_items,
-      vat: quote.vat_gbp,
-      total: quote.total_gbp,
-      validityDays: quote.validity_days,
+      catalog,
     });
 
     await saveLead("quoted", buildLeadDetailsFromQuote(quote, intent.summary), {
