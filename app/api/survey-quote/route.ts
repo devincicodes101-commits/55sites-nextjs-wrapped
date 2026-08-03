@@ -3,6 +3,7 @@ import { createQuoteInBase44, buildLeadDetailsFromQuote, isBase44Configured } fr
 import { catalogToPricingHints, loadCatalogServices } from "@/lib/catalog-pricing";
 import { generateQuoteFromSurvey, isGeminiConfigured } from "@/lib/gemini-quote";
 import { isSurveyQuotePilotEnabled } from "@/lib/pilot";
+import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
 import { isEmailConfigured, sendQuoteEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 
@@ -99,16 +100,33 @@ export async function POST(request: Request) {
       catalog,
     });
 
-    const emailResult = await sendQuoteEmail({
-      to: email,
-      customerName,
-      businessName: site.businessName,
-      city: site.city,
-      phoneDisplay: site.phoneDisplay,
-      quote,
-      quoteRef,
-      catalog,
-    });
+    // Send the quote via the CRM (branded quote + Accept button + choose-date/
+    // diary + stored in Quotes, like a real rep); fall back to our own email.
+    let emailSent = false;
+    let emailWarning: string | undefined;
+    if (isCrmConfigured()) {
+      const r = await createAndSendCrmQuote({
+        customerName,
+        customerEmail: email,
+        customerAddress: quote.property_address || undefined,
+        quote,
+        salesAgentName: "AI Survey Assistant",
+      });
+      emailSent = r.sent;
+    } else {
+      const emailResult = await sendQuoteEmail({
+        to: email,
+        customerName,
+        businessName: site.businessName,
+        city: site.city,
+        phoneDisplay: site.phoneDisplay,
+        quote,
+        quoteRef,
+        catalog,
+      });
+      emailSent = emailResult.sent;
+      emailWarning = emailResult.sent ? undefined : emailResult.error;
+    }
 
     await createQuoteInBase44({
       firstName,
@@ -124,7 +142,7 @@ export async function POST(request: Request) {
       quote_json: JSON.stringify(quote),
       survey_summary: quote.survey_summary,
       survey_file_name: file.name,
-      quote_emailed: emailResult.sent,
+      quote_emailed: emailSent,
       lead_source: "survey_quote_pilot",
       status: "quoted",
     });
@@ -133,8 +151,8 @@ export async function POST(request: Request) {
       ok: true,
       quoteRef,
       totalGbp: quote.total_gbp,
-      emailSent: emailResult.sent,
-      emailWarning: emailResult.sent ? undefined : emailResult.error,
+      emailSent,
+      emailWarning,
       quote: {
         survey_summary: quote.survey_summary,
         property_address: quote.property_address,
