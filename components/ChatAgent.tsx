@@ -208,9 +208,23 @@ export default function ChatAgent({
               </div>
             ))}
 
-            {busy && (
-              <div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>typing…</div>
+            {(busy || uploading) && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#888", marginBottom: 8 }}>
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    border: "2px solid #ccc",
+                    borderTopColor: primary,
+                    borderRadius: "50%",
+                    display: "inline-block",
+                    animation: "chatspin 0.8s linear infinite",
+                  }}
+                />
+                {uploading ? "Reading your survey and preparing your quote… this can take up to a minute" : "typing…"}
+              </div>
             )}
+            <style>{"@keyframes chatspin { to { transform: rotate(360deg); } }"}</style>
 
             {quote && (
               <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", marginTop: 4 }}>
