@@ -9,8 +9,8 @@ import type { GeneratedQuote } from "./gemini-quote";
 
 export const QUOTE_COMPANY = {
   name: "Asbestos UK Teams Ltd",
-  // Set QUOTE_LOGO_URL to the hosted AUK logo (PNG on a dark background).
-  logoUrl: process.env.QUOTE_LOGO_URL || "",
+  // Hosted AUK logo (served from /public). Override with QUOTE_LOGO_URL if needed.
+  logoUrl: process.env.QUOTE_LOGO_URL || "https://55sites-nextjs-wrapped.vercel.app/auk-logo.jpg",
   tagline:
     "We guarantee to beat any genuine quote nationwide by 5% — that's how confident we are on our pricing and service as the leading supplier of asbestos removal and survey services in the UK.",
   slogan: "Safe Removal. Expert Teams. Protecting Tomorrow.",
