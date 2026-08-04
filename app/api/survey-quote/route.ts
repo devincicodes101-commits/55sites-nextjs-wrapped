@@ -109,6 +109,8 @@ export async function POST(request: Request) {
         customerName,
         customerEmail: email,
         customerAddress: quote.property_address || undefined,
+        customerPhone: phone,
+        serviceInterest: service,
         quote,
         salesAgentName: "AI Survey Assistant",
       });
