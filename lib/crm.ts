@@ -87,6 +87,49 @@ function makeCrmQuoteNumber(): string {
   return `QT-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
 }
 
+/**
+ * Find an existing Customer by email, or create one (with the phone), so the
+ * quote links to a real customer record and reps can see/call the client.
+ * Returns the customer id, or null.
+ */
+async function createOrGetCustomerId(input: {
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+}): Promise<string | null> {
+  const appId = process.env.BASE44_CRM_APP_ID!;
+  try {
+    if (input.email) {
+      const q = encodeURIComponent(JSON.stringify({ email: input.email }));
+      const findRes = await fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Customer?q=${q}&limit=1`, {
+        headers: crmHeaders(),
+      });
+      if (findRes.ok) {
+        const arr = (await findRes.json()) as Array<{ id?: string }>;
+        if (Array.isArray(arr) && arr[0]?.id) return arr[0].id;
+      }
+    }
+    const res = await fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Customer`, {
+      method: "POST",
+      headers: crmHeaders(),
+      body: JSON.stringify({
+        name: input.name,
+        email: input.email,
+        phone: input.phone || "",
+        address: input.address || "",
+        client_type: "domestic",
+      }),
+    });
+    if (!res.ok) return null;
+    const rec = (await res.json()) as { id?: string };
+    return rec?.id ?? null;
+  } catch (err) {
+    console.error("createOrGetCustomerId error:", err);
+    return null;
+  }
+}
+
 export async function createCrmQuote(input: CrmQuoteInput): Promise<string | null> {
   try {
     const appId = process.env.BASE44_CRM_APP_ID!;
@@ -102,6 +145,14 @@ export async function createCrmQuote(input: CrmQuoteInput): Promise<string | nul
     // Strip a trailing placeholder last-name (e.g. "Test -" -> "Test").
     const customerName = input.customerName.replace(/\s*-\s*$/, "").trim() || input.customerName;
 
+    // Link a real Customer record so the phone/contact is stored in the CRM.
+    const customerId = await createOrGetCustomerId({
+      name: customerName,
+      email: input.customerEmail,
+      phone: input.customerPhone,
+      address: input.customerAddress,
+    });
+
     const res = await fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Quote`, {
       method: "POST",
       headers: crmHeaders(),
@@ -109,6 +160,7 @@ export async function createCrmQuote(input: CrmQuoteInput): Promise<string | nul
         // The CRM auto-numbers quotes made in its UI, but not via the API — set one.
         quote_number: makeCrmQuoteNumber(),
         client_type: input.clientType || "residential",
+        customer_id: customerId,
         customer_name: customerName,
         customer_email: input.customerEmail,
         customer_address: input.customerAddress || "",
