@@ -336,6 +336,8 @@ export async function POST(request: Request) {
         customerName: displayName,
         customerEmail: fromEmail,
         customerAddress: intent.customer_address || undefined,
+        customerPhone: intent.customer_phone || undefined,
+        serviceInterest: intent.identified_service,
         quote,
         salesAgentName: "AI Email Assistant",
       });

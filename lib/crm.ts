@@ -30,10 +30,57 @@ export type CrmQuoteInput = {
   customerName: string;
   customerEmail: string;
   customerAddress?: string;
+  customerPhone?: string;
+  serviceInterest?: string;
   clientType?: "residential" | "commercial";
   quote: GeneratedQuote;
   salesAgentName?: string;
 };
+
+/**
+ * Create a Lead in the CRM so ALL sales reps see it as a live lead ("AI sent a
+ * quote, not yet booked"). Links to the quote via converted_to_quote_id. Stays
+ * live until a rep changes its status.
+ */
+export async function createCrmLead(input: {
+  name: string;
+  email: string;
+  phone?: string;
+  serviceInterest?: string;
+  estimatedValue?: number;
+  quoteId?: string;
+  source?: string;
+  notes?: string;
+}): Promise<string | null> {
+  try {
+    const appId = process.env.BASE44_CRM_APP_ID!;
+    const res = await fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Lead`, {
+      method: "POST",
+      headers: crmHeaders(),
+      body: JSON.stringify({
+        name: input.name || "Website enquiry",
+        email: input.email,
+        phone: input.phone || "",
+        service_interest: input.serviceInterest || "",
+        estimated_value: input.estimatedValue ?? null,
+        status: "new",
+        priority: "medium",
+        source: input.source || "AI Agent",
+        converted_to_quote_id: input.quoteId || null,
+        notes: input.notes || "",
+      }),
+    });
+    if (!res.ok) {
+      console.error("createCrmLead failed:", res.status, await res.text().catch(() => ""));
+      return null;
+    }
+    const rec = (await res.json()) as { id?: string };
+    return rec?.id ?? null;
+  } catch (err) {
+    console.error("createCrmLead error:", err);
+    return null;
+  }
+}
 
 /** Create a Quote record in the CRM. Returns the new quote id, or null on failure. */
 function makeCrmQuoteNumber(): string {
@@ -120,5 +167,19 @@ export async function createAndSendCrmQuote(
   const quoteId = await createCrmQuote(input);
   if (!quoteId) return { quoteId: null, sent: false };
   const sent = await sendCrmQuote(quoteId);
+
+  // Also create a live lead so all reps see it (quote sent, not yet booked).
+  const cleanName = input.customerName.replace(/\s*-\s*$/, "").trim() || input.customerName;
+  await createCrmLead({
+    name: cleanName,
+    email: input.customerEmail,
+    phone: input.customerPhone,
+    serviceInterest: input.serviceInterest,
+    estimatedValue: input.quote.total_gbp,
+    quoteId,
+    source: input.salesAgentName || "AI Agent",
+    notes: `AI agent sent a quotation (total £${input.quote.total_gbp.toFixed(2)}). Awaiting customer response — call to close.`,
+  });
+
   return { quoteId, sent };
 }

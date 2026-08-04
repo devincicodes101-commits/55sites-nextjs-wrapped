@@ -107,6 +107,8 @@ export async function POST(request: Request) {
           customerName: turn.customer_name || "there",
           customerEmail: turn.customer_email,
           customerAddress: turn.customer_address || undefined,
+          customerPhone: turn.customer_phone || undefined,
+          serviceInterest: turn.service,
           quote,
           salesAgentName: "AI Chat Assistant",
         });
