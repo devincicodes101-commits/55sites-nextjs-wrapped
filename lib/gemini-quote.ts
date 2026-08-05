@@ -17,6 +17,7 @@ export type QuoteLineItem = {
 
 export type GeneratedQuote = {
   survey_summary: string;
+  survey_type: string | null;
   property_address: string | null;
   property_type: string | null;
   identified_acms: string[];
@@ -34,6 +35,7 @@ export type GeneratedQuote = {
 /** Gemini extracts scope only — unit prices come from the Service Catalog in code. */
 type SurveyScopeDraft = {
   survey_summary: string;
+  survey_type: string | null;
   property_address: string | null;
   property_type: string | null;
   identified_acms: string[];
@@ -54,6 +56,7 @@ const SCOPE_JSON_SCHEMA = {
   type: "object",
   properties: {
     survey_summary: { type: "string" },
+    survey_type: { type: ["string", "null"] },
     property_address: { type: ["string", "null"] },
     property_type: { type: ["string", "null"] },
     identified_acms: { type: "array", items: { type: "string" } },
@@ -139,8 +142,14 @@ ${catalogNames.map((n) => `- "${n}"`).join("\n")}
 Catalog rate reference (for understanding unit types only — do not quote these numbers in the JSON):
 ${pricingText}
 
+SURVEY TYPE (important — set survey_type and let it drive what you quote):
+- Set survey_type to one of: "management", "refurbishment_demolition", "reinspection", or "other".
+- A MANAGEMENT survey locates asbestos so it can be MANAGED IN PLACE. For a management survey, ONLY add a line_item for a material whose recommended Action is "Remove". Materials whose Action is "Manage" (leave in place / monitor) are NOT removal works — do NOT create line_items for them, and do NOT quote them for removal. If a management survey has no "Remove" items, return an empty line_items array.
+- A REFURBISHMENT/DEMOLITION survey supports removal before works — quote the ACMs identified for removal as normal.
+- When in doubt about an item, follow the report's stated Action column.
+
 Rules:
-- For each ACM / recommended removal or related catalog work in the report, add one line_item.
+- For each ACM / recommended removal or related catalog work in the report (subject to the SURVEY TYPE rules above), add one line_item.
 - catalog_name MUST be an exact string from the SERVICE CATALOG list above. If nothing matches, use catalog_name "OTHER" and explain in assumptions (OTHER lines are excluded from the priced quote).
 - quantity: estimate from the report (m², number of sheets/bags/jobs). For fixed catalog jobs (garage roof, tank, boiler, etc.) use quantity 1 per occurrence.
 - unit: use "m²", "unit", "sheet", "bag", or "job" as appropriate — the pricing engine will normalise from the catalog unit_type.
@@ -182,14 +191,23 @@ Rules:
 
   const draft = JSON.parse(text) as SurveyScopeDraft;
 
-  // A survey can legitimately contain no asbestos (e.g. every sample "No Asbestos
-  // Detected"). In that case Gemini correctly returns zero line items — return a
-  // clean "no removal required" quote instead of failing the whole request.
+  // No line items is a legitimate outcome, not a failure. Two common cases:
+  //  1. A survey with no asbestos (every sample "No Asbestos Detected").
+  //  2. A MANAGEMENT survey where all items are "Manage in place" (nothing to remove).
+  // Return a clean, explanatory response instead of erroring the whole request.
+  const isManagement = (draft.survey_type || "").toLowerCase().includes("manage");
   if (!Array.isArray(draft.line_items) || draft.line_items.length === 0) {
+    const managementNote =
+      "This is an asbestos MANAGEMENT survey: the materials identified are recommended to be managed in place, not removed, so no removal works have been quoted. If you need asbestos removal, you'll usually need a refurbishment/demolition survey first — please contact us and we'll advise.";
+    const noAsbestosNote =
+      "No asbestos-containing materials requiring removal were identified in the uploaded survey, so no removal works have been quoted. Please contact us if you would like a survey or further advice.";
     return {
       survey_summary:
         draft.survey_summary ||
-        "The uploaded survey did not identify any asbestos-containing materials requiring removal.",
+        (isManagement
+          ? "This management survey does not identify any asbestos requiring removal (materials are recommended to be managed in place)."
+          : "The uploaded survey did not identify any asbestos-containing materials requiring removal."),
+      survey_type: draft.survey_type ?? null,
       property_address: draft.property_address ?? null,
       property_type: draft.property_type ?? null,
       identified_acms: draft.identified_acms ?? [],
@@ -200,7 +218,7 @@ Rules:
       total_gbp: 0,
       assumptions: [
         ...(Array.isArray(draft.assumptions) ? draft.assumptions : []),
-        "No asbestos-containing materials requiring removal were identified in the uploaded survey, so no removal works have been quoted. Please contact us if you would like a survey or further advice.",
+        isManagement ? managementNote : noAsbestosNote,
       ],
       exclusions: Array.isArray(draft.exclusions) ? draft.exclusions : [],
       validity_days: typeof draft.validity_days === "number" ? draft.validity_days : 30,
@@ -300,8 +318,15 @@ Rules:
     );
   }
 
+  if (isManagement) {
+    assumptions.unshift(
+      "This is a management survey, so only items the report marks for removal have been quoted; materials recommended to be managed in place are not included. Removal of those normally requires a refurbishment/demolition survey first.",
+    );
+  }
+
   return {
     survey_summary: draft.survey_summary,
+    survey_type: draft.survey_type ?? null,
     property_address: draft.property_address ?? null,
     property_type: draft.property_type ?? null,
     identified_acms: draft.identified_acms ?? [],

@@ -8,7 +8,8 @@ import { isEmailConfigured, sendQuoteEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// Large, photo-heavy surveys (60-90+ pages) need longer to OCR/extract.
+export const maxDuration = 300;
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
@@ -18,7 +19,11 @@ const ALLOWED_MIME = new Set([
   "image/gif",
 ]);
 
-const MAX_BYTES = 12 * 1024 * 1024; // 12MB
+// NOTE: Vercel serverless functions cap the *request body* at ~4.5MB, so a direct
+// upload larger than that is rejected by the platform (413) before this runs. This
+// app-level cap is the secondary ceiling; genuinely huge surveys need a direct-to-
+// storage upload flow (see follow-up) rather than posting the file inline.
+const MAX_BYTES = 20 * 1024 * 1024; // 20MB
 
 function makeQuoteRef(city: string) {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");

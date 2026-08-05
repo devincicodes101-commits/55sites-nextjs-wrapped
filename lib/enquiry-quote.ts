@@ -109,6 +109,7 @@ export function assessEnquiry(input: {
 
   const quote: GeneratedQuote = {
     survey_summary: `Quote prepared from your website enquiry for "${svc.name}".`,
+    survey_type: null,
     property_address: null,
     property_type: null,
     identified_acms: [],
