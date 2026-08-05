@@ -45,9 +45,31 @@ export default function SurveyQuoteForm({ serviceOptions }: { serviceOptions: st
     const data = new FormData(form);
 
     try {
+      const file = data.get("surveyReport");
+      if (!(file instanceof File) || file.size === 0) {
+        throw new Error("Please upload a survey report (PDF or image)");
+      }
+      // Upload straight to Vercel Blob (bypasses the ~4.5MB request-body limit),
+      // then send the file's URL + the form fields to the quote endpoint.
+      const { upload } = await import("@vercel/blob/client");
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/survey-upload",
+        contentType: file.type,
+      });
       const res = await fetch("/api/survey-quote", {
         method: "POST",
-        body: data,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: String(data.get("firstName") || ""),
+          lastName: String(data.get("lastName") || ""),
+          phone: String(data.get("phone") || ""),
+          email: String(data.get("email") || ""),
+          service: String(data.get("service") || ""),
+          details: String(data.get("details") || ""),
+          surveyUrl: blob.url,
+          fileName: file.name,
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || "Request failed");

@@ -47,20 +47,69 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "CRM is not configured (BASE44_APP_ID)" }, { status: 500 });
   }
 
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
-    return NextResponse.json({ error: "Invalid multipart form data" }, { status: 400 });
-  }
+  // Two upload paths:
+  //  - JSON with `surveyUrl`: the browser already uploaded the file straight to
+  //    Vercel Blob (bypasses the ~4.5MB request-body limit) — we fetch it here.
+  //  - multipart form-data: the file is posted inline (small files only).
+  let firstName: string;
+  let lastName: string;
+  let phone: string;
+  let email: string;
+  let service: string;
+  let details: string;
+  let buffer: Buffer;
+  let fileType: string;
+  let fileName: string;
 
-  const firstName = String(form.get("firstName") || "").trim();
-  const lastName = String(form.get("lastName") || "").trim();
-  const phone = String(form.get("phone") || "").trim();
-  const email = String(form.get("email") || "").trim();
-  const service = String(form.get("service") || "").trim();
-  const details = String(form.get("details") || "").trim();
-  const file = form.get("surveyReport");
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    let body: Record<string, unknown>;
+    try {
+      body = (await request.json()) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    firstName = String(body.firstName || "").trim();
+    lastName = String(body.lastName || "").trim();
+    phone = String(body.phone || "").trim();
+    email = String(body.email || "").trim();
+    service = String(body.service || "").trim();
+    details = String(body.details || "").trim();
+    const surveyUrl = String(body.surveyUrl || "").trim();
+    fileName = String(body.fileName || "survey").trim();
+
+    // Only allow fetching from our own Blob store, never arbitrary URLs.
+    if (!/^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i.test(surveyUrl)) {
+      return NextResponse.json({ error: "Invalid survey upload reference" }, { status: 400 });
+    }
+    const fileRes = await fetch(surveyUrl);
+    if (!fileRes.ok) {
+      return NextResponse.json({ error: "Could not read the uploaded survey" }, { status: 400 });
+    }
+    fileType = fileRes.headers.get("content-type")?.split(";")[0] || "application/pdf";
+    buffer = Buffer.from(await fileRes.arrayBuffer());
+  } else {
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return NextResponse.json({ error: "Invalid multipart form data" }, { status: 400 });
+    }
+    firstName = String(form.get("firstName") || "").trim();
+    lastName = String(form.get("lastName") || "").trim();
+    phone = String(form.get("phone") || "").trim();
+    email = String(form.get("email") || "").trim();
+    service = String(form.get("service") || "").trim();
+    details = String(form.get("details") || "").trim();
+    const file = form.get("surveyReport");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Please upload a survey report (PDF or image)" }, { status: 400 });
+    }
+    fileType = file.type;
+    fileName = file.name;
+    buffer = Buffer.from(await file.arrayBuffer());
+  }
 
   if (!firstName || !lastName) {
     return NextResponse.json({ error: "First and last name are required" }, { status: 400 });
@@ -74,20 +123,18 @@ export async function POST(request: Request) {
   if (!service) {
     return NextResponse.json({ error: "Service is required" }, { status: 400 });
   }
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Please upload a survey report (PDF or image)" }, { status: 400 });
-  }
-  if (!ALLOWED_MIME.has(file.type)) {
+  if (!ALLOWED_MIME.has(fileType)) {
     return NextResponse.json(
       { error: "Unsupported file type. Upload a PDF or image (JPG, PNG, WEBP)." },
       { status: 400 },
     );
   }
-  if (file.size <= 0 || file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Survey file must be between 1 byte and 12MB" }, { status: 400 });
+  if (buffer.length <= 0 || buffer.length > MAX_BYTES) {
+    return NextResponse.json(
+      { error: "Survey file must be between 1 byte and 20MB" },
+      { status: 400 },
+    );
   }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
   const quoteRef = makeQuoteRef(site.city);
   const customerName = `${firstName} ${lastName}`.trim();
 
@@ -95,8 +142,8 @@ export async function POST(request: Request) {
     const catalog = await loadCatalogServices();
     const quote = await generateQuoteFromSurvey({
       fileBuffer: buffer,
-      mimeType: file.type,
-      fileName: file.name,
+      mimeType: fileType,
+      fileName,
       customerName,
       city: site.city,
       region: site.region,
@@ -148,7 +195,7 @@ export async function POST(request: Request) {
       quote_total_gbp: quote.total_gbp,
       quote_json: JSON.stringify(quote),
       survey_summary: quote.survey_summary,
-      survey_file_name: file.name,
+      survey_file_name: fileName,
       quote_emailed: emailSent,
       lead_source: "survey_quote_pilot",
       status: "quoted",
