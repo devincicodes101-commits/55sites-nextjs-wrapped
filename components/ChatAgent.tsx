@@ -64,21 +64,34 @@ export default function ChatAgent({
     if (uploading || !upFile || !upName.trim() || !upEmail.trim()) return;
     setUploading(true);
     const parts = upName.trim().split(/\s+/);
-    const fd = new FormData();
-    fd.append("firstName", parts[0] || upName.trim());
-    fd.append("lastName", parts.slice(1).join(" ") || "-");
-    fd.append("phone", upPhone.trim() || "-");
-    fd.append("email", upEmail.trim());
-    fd.append("service", "Asbestos Survey");
-    fd.append("details", "Survey report uploaded via website chat");
-    fd.append("surveyReport", upFile);
     setMessages((m) => [
       ...m,
       { role: "user", content: `📎 Uploaded survey report: ${upFile.name}` },
     ]);
     setUploadOpen(false);
     try {
-      const res = await fetch("/api/survey-quote", { method: "POST", body: fd });
+      // Upload the file straight to Vercel Blob (bypasses the ~4.5MB body limit),
+      // then send only its URL to the quote endpoint.
+      const { upload } = await import("@vercel/blob/client");
+      const blob = await upload(upFile.name, upFile, {
+        access: "public",
+        handleUploadUrl: "/api/survey-upload",
+        contentType: upFile.type,
+      });
+      const res = await fetch("/api/survey-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: parts[0] || upName.trim(),
+          lastName: parts.slice(1).join(" ") || "-",
+          phone: upPhone.trim() || "-",
+          email: upEmail.trim(),
+          service: "Asbestos Survey",
+          details: "Survey report uploaded via website chat",
+          surveyUrl: blob.url,
+          fileName: upFile.name,
+        }),
+      });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.quote) {
         const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(data.totalGbp || data.quote.total_gbp);
