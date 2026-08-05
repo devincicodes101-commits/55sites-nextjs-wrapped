@@ -162,6 +162,32 @@ Rules:
 - Typical exclusions: scaffolding by others, bitumen/resin adhesive removal under floor tiles, client-supplied access equipment where noted in the catalog.
 - Return ONLY structured JSON matching the schema (no prices).`;
 
+  // Inline base64 is capped at ~20MB per request, which large multi-page surveys
+  // exceed. For big files, upload via the Gemini File API and reference by URI;
+  // small files stay inline (faster, no extra round-trip).
+  const INLINE_LIMIT = 15 * 1024 * 1024; // 15MB raw (~20MB base64)
+  let surveyPart: Record<string, unknown>;
+  if (input.fileBuffer.length <= INLINE_LIMIT) {
+    surveyPart = {
+      inlineData: { mimeType: input.mimeType, data: input.fileBuffer.toString("base64") },
+    };
+  } else {
+    const { createPartFromUri } = await import("@google/genai");
+    const uploaded = await ai.files.upload({
+      file: new Blob([new Uint8Array(input.fileBuffer)], { type: input.mimeType }),
+      config: { mimeType: input.mimeType, displayName: input.fileName },
+    });
+    let file = uploaded;
+    for (let i = 0; i < 90 && file.state === "PROCESSING"; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      file = await ai.files.get({ name: uploaded.name as string });
+    }
+    if (file.state !== "ACTIVE" || !file.uri || !file.mimeType) {
+      throw new Error("Gemini could not process this survey file — please try a smaller file or call us");
+    }
+    surveyPart = createPartFromUri(file.uri, file.mimeType) as unknown as Record<string, unknown>;
+  }
+
   const response = await ai.models.generateContent({
     model,
     contents: [
@@ -169,12 +195,7 @@ Rules:
         role: "user",
         parts: [
           { text: prompt },
-          {
-            inlineData: {
-              mimeType: input.mimeType,
-              data: input.fileBuffer.toString("base64"),
-            },
-          },
+          surveyPart,
           { text: `Uploaded filename: ${input.fileName}` },
         ],
       },

@@ -23,7 +23,7 @@ const ALLOWED_MIME = new Set([
 // upload larger than that is rejected by the platform (413) before this runs. This
 // app-level cap is the secondary ceiling; genuinely huge surveys need a direct-to-
 // storage upload flow (see follow-up) rather than posting the file inline.
-const MAX_BYTES = 20 * 1024 * 1024; // 20MB
+const MAX_BYTES = 50 * 1024 * 1024; // 50MB (large surveys read via Gemini File API)
 
 function makeQuoteRef(city: string) {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
   }
   if (buffer.length <= 0 || buffer.length > MAX_BYTES) {
     return NextResponse.json(
-      { error: "Survey file must be between 1 byte and 20MB" },
+      { error: "Survey file must be between 1 byte and 50MB" },
       { status: 400 },
     );
   }

@@ -28,7 +28,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       request,
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ALLOWED_CONTENT_TYPES,
-        maximumSizeInBytes: 20 * 1024 * 1024, // 20MB (Gemini inline limit)
+        maximumSizeInBytes: 50 * 1024 * 1024, // 50MB — big multi-page surveys
       }),
       onUploadCompleted: async () => {
         // No-op: the survey-quote request reads the returned blob URL directly.
