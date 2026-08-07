@@ -20,12 +20,24 @@ const ALLOWED_CONTENT_TYPES = [
   "image/gif",
 ];
 
+// The read-write token for the PUBLIC survey-uploads Blob store. Read from the
+// env var (never hard-coded). Accepts a few likely names so it works regardless
+// of exactly how it was added in Vercel.
+function blobToken(): string | undefined {
+  return (
+    process.env.SURVEY_READ_WRITE_TOKEN ||
+    process.env.Survey_READ_WRITE_TOKEN ||
+    process.env.BLOB_READ_WRITE_TOKEN
+  );
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
   const body = (await request.json()) as HandleUploadBody;
   try {
     const jsonResponse = await handleUpload({
       body,
       request,
+      token: blobToken(),
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ALLOWED_CONTENT_TYPES,
         maximumSizeInBytes: 50 * 1024 * 1024, // 50MB — big multi-page surveys
