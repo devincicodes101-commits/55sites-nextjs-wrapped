@@ -70,28 +70,42 @@ export default function ChatAgent({
     ]);
     setUploadOpen(false);
     try {
-      // Upload the file straight to Vercel Blob (bypasses the ~4.5MB body limit),
-      // then send only its URL to the quote endpoint.
-      const { upload } = await import("@vercel/blob/client");
-      const blob = await upload(upFile.name, upFile, {
-        access: "public",
-        handleUploadUrl: "/api/survey-upload",
-        contentType: upFile.type,
-      });
-      const res = await fetch("/api/survey-quote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: parts[0] || upName.trim(),
-          lastName: parts.slice(1).join(" ") || "-",
-          phone: upPhone.trim() || "-",
-          email: upEmail.trim(),
-          service: "Asbestos Survey",
-          details: "Survey report uploaded via website chat",
-          surveyUrl: blob.url,
-          fileName: upFile.name,
-        }),
-      });
+      const SMALL_FILE = 4 * 1024 * 1024; // under Vercel's ~4.5MB request-body limit
+      let res: Response;
+      if (upFile.size <= SMALL_FILE) {
+        // Small file: post directly (fast, no Blob dependency).
+        const fd = new FormData();
+        fd.append("firstName", parts[0] || upName.trim());
+        fd.append("lastName", parts.slice(1).join(" ") || "-");
+        fd.append("phone", upPhone.trim() || "-");
+        fd.append("email", upEmail.trim());
+        fd.append("service", "Asbestos Survey");
+        fd.append("details", "Survey report uploaded via website chat");
+        fd.append("surveyReport", upFile);
+        res = await fetch("/api/survey-quote", { method: "POST", body: fd });
+      } else {
+        // Large file: upload to Vercel Blob first (bypasses the 4.5MB limit).
+        const { upload } = await import("@vercel/blob/client");
+        const blob = await upload(upFile.name, upFile, {
+          access: "public",
+          handleUploadUrl: "/api/survey-upload",
+          contentType: upFile.type,
+        });
+        res = await fetch("/api/survey-quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName: parts[0] || upName.trim(),
+            lastName: parts.slice(1).join(" ") || "-",
+            phone: upPhone.trim() || "-",
+            email: upEmail.trim(),
+            service: "Asbestos Survey",
+            details: "Survey report uploaded via website chat",
+            surveyUrl: blob.url,
+            fileName: upFile.name,
+          }),
+        });
+      }
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.quote) {
         const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(data.totalGbp || data.quote.total_gbp);
