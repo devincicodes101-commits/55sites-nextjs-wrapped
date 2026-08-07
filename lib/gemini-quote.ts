@@ -155,6 +155,8 @@ Rules:
 - unit: use "m²", "unit", "sheet", "bag", or "job" as appropriate — the pricing engine will normalise from the catalog unit_type.
 - description: short human-readable line referencing location/ACM from the report.
 - Do not invent works that are not supported by the report.
+- IGNORE non-item pages: cover/title pages, contents, introduction, survey objectives/techniques, caveats, disclaimers, the material assessment algorithm, certificates of analysis, site plans, quality assurance, and standalone photo pages. Extract works ONLY from the actual ACM item entries and summary/register tables — the rows that have a Material Description, Location and Action. Skip "Negative"/"No Suspect Materials Found"/"No Asbestos Detected" entries.
+- Prefer the report's own quantity/units (m², number of sheets/units) and its Action column when deciding what to quote.
 - If the report is unclear on quantity, state the assumption and use a conservative measurable estimate.
 - validity_days should be 30 unless the report implies urgency.
 - Do not invent a property address if none is present — use null.
