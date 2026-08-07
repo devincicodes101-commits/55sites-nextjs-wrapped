@@ -151,8 +151,9 @@ SURVEY TYPE (important — set survey_type and let it drive what you quote):
 Rules:
 - For each ACM / recommended removal or related catalog work in the report (subject to the SURVEY TYPE rules above), add one line_item.
 - catalog_name MUST be an exact string from the SERVICE CATALOG list above. If nothing matches, use catalog_name "OTHER" and explain in assumptions (OTHER lines are excluded from the priced quote).
-- quantity: estimate from the report (m², number of sheets/bags/jobs). For fixed catalog jobs (garage roof, tank, boiler, etc.) use quantity 1 per occurrence.
-- unit: use "m²", "unit", "sheet", "bag", or "job" as appropriate — the pricing engine will normalise from the catalog unit_type.
+- quantity: COPY THE EXACT number stated in that item's "Approx. quantity" field. Do NOT round, inflate, average, or default to a placeholder like 10 — read the figure as written. Examples: "Approx. quantity: 5 no" -> quantity 5; "3 no" -> quantity 3; "90 m²" -> quantity 90; "45 m²" -> quantity 45; "1 no" -> quantity 1. If the quantity is a word with no number (e.g. "Throughout", "N/A"), use quantity 1 and record the assumption in "assumptions" — never guess a larger number.
+- unit: match the report's unit — "no"/"sheets"/count -> "unit"; area in m² -> "m²"; bags -> "bag"; a whole fixed job -> "job". The pricing engine normalises from the catalog unit_type.
+- Double-check every quantity against the report before returning — a wrong quantity produces a wrong price.
 - description: short human-readable line referencing location/ACM from the report.
 - Do not invent works that are not supported by the report.
 - IGNORE non-item pages: cover/title pages, contents, introduction, survey objectives/techniques, caveats, disclaimers, the material assessment algorithm, certificates of analysis, site plans, quality assurance, and standalone photo pages. Extract works ONLY from the actual ACM item entries and summary/register tables — the rows that have a Material Description, Location and Action. Skip "Negative"/"No Suspect Materials Found"/"No Asbestos Detected" entries.

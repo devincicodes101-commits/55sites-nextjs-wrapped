@@ -83,6 +83,8 @@ INSTRUCTIONS
 1. Carefully and correctly identify exactly what this asbestos item/work is.
 2. If you cannot confidently identify it, set "confident" to false and do not price it.
 3. If confident, give a realistic UK removal price ESTIMATE as a per-"${input.unit}" range in GBP (min and max), consistent with the catalog rates above. Be conservative — do not over-price.
+4. Price PER SINGLE "${input.unit}" only — do NOT multiply by the quantity (${qty}); the system multiplies by the quantity afterwards. Anchor to the closest catalog rate above for a comparable material/unit so the estimate stays consistent with existing pricing.
+5. If a very similar item already exists in the catalog rates above, keep your per-unit estimate close to that rate rather than inventing a different level.
 
 Return ONLY strict JSON in exactly this shape (no prose, no markdown):
 {
