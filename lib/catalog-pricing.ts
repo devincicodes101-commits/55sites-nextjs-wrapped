@@ -304,11 +304,12 @@ export function applyCatalogRates(
       const minSheets = 10;
       const minCallOut = 350;
       if (quantity < minSheets || total < minCallOut) {
-        quantity = minSheets;
+        // Keep the TRUE sheet count from the survey; apply the minimum call-out
+        // to the total only (don't overwrite the quantity to the 10-sheet floor).
         total = minCallOut;
         unitPrice = round2(total / quantity);
         assumptions.push(
-          `Corrugated sheet collection: minimum call-out £${minCallOut} (${minSheets} sheets) applied from Service Catalog.`,
+          `Corrugated sheet collection (${quantity} sheet${quantity === 1 ? "" : "s"}): minimum call-out £${minCallOut} applied from the Service Catalog (jobs under ${minSheets} sheets are charged at the minimum).`,
         );
       }
     }
