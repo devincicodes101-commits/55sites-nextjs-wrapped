@@ -41,6 +41,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async () => ({
         allowedContentTypes: ALLOWED_CONTENT_TYPES,
         maximumSizeInBytes: 50 * 1024 * 1024, // 50MB — big multi-page surveys
+        // Unique pathname per upload so re-uploading the same filename never
+        // collides with an existing blob ("blob already exists" -> upload fails).
+        addRandomSuffix: true,
       }),
       onUploadCompleted: async () => {
         // No-op: the survey-quote request reads the returned blob URL directly.
