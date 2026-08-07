@@ -116,6 +116,25 @@ export default function ChatAgent({
             content: `Thanks! I've read your survey and prepared your fixed-price quotation (${total} inc. VAT). It's been sent to ${upEmail.trim()} with a link to accept and choose a date for the work. A copy is saved for our team.`,
           },
         ]);
+        // Show the same formatted quote card as the typed-quote flow.
+        setQuote({
+          ref: data.quoteRef || "",
+          businessName,
+          primary,
+          lineItems: (data.quote.line_items || []).map(
+            (li: { description: string; quantity: number; unit: string; total_gbp: number }) => ({
+              description: li.description,
+              quantity: li.quantity,
+              unit: li.unit,
+              total_gbp: li.total_gbp,
+            }),
+          ),
+          subtotal: data.quote.subtotal_gbp,
+          vat: data.quote.vat_gbp,
+          total: data.quote.total_gbp,
+          totalDisplay: total,
+          validityDays: data.quote.validity_days,
+        });
       } else {
         setMessages((m) => [
           ...m,
