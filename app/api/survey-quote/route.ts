@@ -152,11 +152,18 @@ export async function POST(request: Request) {
       catalog,
     });
 
+    // A survey can identify no asbestos requiring removal (e.g. all samples NAD,
+    // or a management survey with nothing to remove). In that case there's nothing
+    // to quote — don't send a £0 quote/email; just tell the customer the good news.
+    const nothingToQuote = !quote.line_items || quote.line_items.length === 0;
+
     // Send the quote via the CRM (branded quote + Accept button + choose-date/
     // diary + stored in Quotes, like a real rep); fall back to our own email.
     let emailSent = false;
     let emailWarning: string | undefined;
-    if (isCrmConfigured()) {
+    if (nothingToQuote) {
+      // No quote to send.
+    } else if (isCrmConfigured()) {
       const r = await createAndSendCrmQuote({
         customerName,
         customerEmail: email,
@@ -205,6 +212,7 @@ export async function POST(request: Request) {
       ok: true,
       quoteRef,
       totalGbp: quote.total_gbp,
+      noAsbestos: nothingToQuote,
       emailSent,
       emailWarning,
       quote: {

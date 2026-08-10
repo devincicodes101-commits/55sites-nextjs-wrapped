@@ -107,7 +107,17 @@ export default function ChatAgent({
         });
       }
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.quote) {
+      if (res.ok && data.noAsbestos) {
+        // Survey found no asbestos requiring removal — nothing to quote.
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content:
+              "Good news — I've read your survey and it didn't identify any asbestos requiring removal, so there's nothing to quote. 🎉 If you'd like a fresh survey, or have other work you'd like priced, just let me know and we'll be happy to help.",
+          },
+        ]);
+      } else if (res.ok && data.quote) {
         const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(data.totalGbp || data.quote.total_gbp);
         setMessages((m) => [
           ...m,
