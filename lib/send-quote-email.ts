@@ -249,7 +249,7 @@ export function buildMissingInfoEmailHtml(input: {
     <p>Dear ${input.customerName},</p>
     <p>Thank you for your enquiry about <strong>${input.service}</strong>. To prepare your fixed-price quote, we just need a little more information:</p>
     <ul>${items}</ul>
-    <p>Simply reply to this email with these details and we'll send your quote straight over — usually within a few minutes.</p>
+    <p>Simply reply to this email with these details and we'll send your quote straight over, usually within a few minutes.</p>
     <p style="margin-top:24px">Prefer to talk it through? Call us on <strong>${input.phoneDisplay}</strong>.</p>
     <p style="color:#888;font-size:12px;margin-top:32px">${input.businessName} — ${input.city}.</p>
   </div>`;

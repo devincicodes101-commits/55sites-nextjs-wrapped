@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { naturalize } from "@/lib/text";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -18,19 +19,6 @@ type QuoteCard = {
 
 function money(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
-}
-
-/**
- * Make assistant text read more naturally: em/en dashes are a tell-tale sign of
- * AI-written copy, so a spaced dash used as a pause becomes a comma, and any
- * remaining dash becomes a plain hyphen.
- */
-function naturalize(text: string): string {
-  return text
-    .replace(/\s+[—–]\s+/g, ", ")
-    .replace(/[—–]/g, "-")
-    .replace(/ ,/g, ",")
-    .replace(/,{2,}/g, ",");
 }
 
 export default function ChatAgent({
@@ -303,7 +291,7 @@ export default function ChatAgent({
                 <div style={{ padding: 14 }}>
                   {quote.lineItems.map((li, i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
-                      <span>{li.description} ({li.quantity} {li.unit})</span>
+                      <span>{naturalize(li.description)} ({li.quantity} {li.unit})</span>
                       <span>{money(li.total_gbp)}</span>
                     </div>
                   ))}

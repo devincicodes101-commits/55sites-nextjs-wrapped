@@ -11,6 +11,7 @@ import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
 import { assessEnquiry } from "@/lib/enquiry-quote";
 import { buildQuoteDocFromQuote } from "@/lib/quote-document";
 import { resolveSiteByRecipient } from "@/lib/sites/registry";
+import { naturalize } from "@/lib/text";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,11 +26,15 @@ function escapeHtml(s: string) {
 
 /** Build a plain-text + HTML reply from paragraphs (+ an optional bullet list after the first para). */
 function renderReply(
-  name: string,
-  paras: string[],
-  bullets: string[] | null,
+  rawName: string,
+  rawParas: string[],
+  rawBullets: string[] | null,
   businessName: string,
 ): { text: string; html: string } {
+  // Strip AI-tell em-dashes from all customer-facing copy.
+  const name = naturalize(rawName);
+  const paras = rawParas.map(naturalize);
+  const bullets = rawBullets ? rawBullets.map(naturalize) : rawBullets;
   const textLines: string[] = [`Hi ${name},`, ""];
   paras.forEach((p, i) => {
     textLines.push(p);
@@ -75,7 +80,7 @@ function brandedQuoteHtml(o: {
     .map(
       (li) => `
       <tr>
-        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222">${escapeHtml(li.description)}</td>
+        <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222">${escapeHtml(naturalize(li.description))}</td>
         <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222;text-align:center">${li.quantity}</td>
         <td style="padding:14px 20px;border-bottom:1px solid #eee;font-size:14px;color:#222;text-align:right">${money(li.total_gbp)}</td>
       </tr>`,

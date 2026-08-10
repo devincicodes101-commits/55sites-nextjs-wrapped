@@ -5,6 +5,7 @@ import {
   type PricingHint,
 } from "./catalog-pricing";
 import { estimateUnmatchedItem, isOpenAIConfigured } from "./openai-estimate";
+import { naturalize } from "./text";
 
 export type QuoteLineItem = {
   description: string;
@@ -226,11 +227,12 @@ Rules:
     const noAsbestosNote =
       "No asbestos-containing materials requiring removal were identified in the uploaded survey, so no removal works have been quoted. Please contact us if you would like a survey or further advice.";
     return {
-      survey_summary:
+      survey_summary: naturalize(
         draft.survey_summary ||
-        (isManagement
-          ? "This management survey does not identify any asbestos requiring removal (materials are recommended to be managed in place)."
-          : "The uploaded survey did not identify any asbestos-containing materials requiring removal."),
+          (isManagement
+            ? "This management survey does not identify any asbestos requiring removal (materials are recommended to be managed in place)."
+            : "The uploaded survey did not identify any asbestos-containing materials requiring removal."),
+      ),
       survey_type: draft.survey_type ?? null,
       property_address: draft.property_address ?? null,
       property_type: draft.property_type ?? null,
@@ -348,20 +350,24 @@ Rules:
     );
   }
 
+  const allLineItems = [...catalogLineItems, ...estimatedLineItems, ...manualLineItems].map(
+    (li) => ({ ...li, description: naturalize(li.description) }),
+  );
+
   return {
-    survey_summary: draft.survey_summary,
+    survey_summary: naturalize(draft.survey_summary),
     survey_type: draft.survey_type ?? null,
     property_address: draft.property_address ?? null,
     property_type: draft.property_type ?? null,
     identified_acms: draft.identified_acms ?? [],
     recommended_works: draft.recommended_works ?? [],
-    line_items: [...catalogLineItems, ...estimatedLineItems, ...manualLineItems],
+    line_items: allLineItems,
     subtotal_gbp,
     vat_gbp,
     total_gbp,
-    assumptions,
-    exclusions: Array.isArray(draft.exclusions) ? draft.exclusions : [],
+    assumptions: assumptions.map(naturalize),
+    exclusions: (Array.isArray(draft.exclusions) ? draft.exclusions : []).map(naturalize),
     validity_days: typeof draft.validity_days === "number" ? draft.validity_days : 30,
-    risk_notes: draft.risk_notes ?? "",
+    risk_notes: naturalize(draft.risk_notes ?? ""),
   };
 }
