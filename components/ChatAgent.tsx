@@ -20,6 +20,19 @@ function money(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
+/**
+ * Make assistant text read more naturally: em/en dashes are a tell-tale sign of
+ * AI-written copy, so a spaced dash used as a pause becomes a comma, and any
+ * remaining dash becomes a plain hyphen.
+ */
+function naturalize(text: string): string {
+  return text
+    .replace(/\s+[—–]\s+/g, ", ")
+    .replace(/[—–]/g, "-")
+    .replace(/ ,/g, ",")
+    .replace(/,{2,}/g, ",");
+}
+
 export default function ChatAgent({
   businessName,
   primary,
@@ -259,7 +272,7 @@ export default function ChatAgent({
                     border: m.role === "user" ? "none" : "1px solid #e5e7eb",
                   }}
                 >
-                  {m.content}
+                  {m.role === "assistant" ? naturalize(m.content) : m.content}
                 </div>
               </div>
             ))}
