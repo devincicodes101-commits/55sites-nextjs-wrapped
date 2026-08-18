@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { catalogToPriceItems } from "../catalog-pricing";
 import { getDesignStyleForCity } from "../design-styles";
 import type { SiteConfig } from "../types";
+import asbestosteams from "./asbestosteams";
 import bath from "./bath";
 import birmingham from "./birmingham";
 import bradford from "./bradford";
@@ -62,6 +63,7 @@ import york from "./york";
 // (copy an existing one and edit the values) and add one line here mapping
 // its real domain to the import. Nothing else in the app needs to change.
 const registry: Record<string, SiteConfig> = {
+  "asbestosteams.co.uk": asbestosteams,
   "bathasbestosabatement.co.uk": bath,
   "birminghamasbestosabatement.co.uk": birmingham,
   "bradfordasbestosabatement.co.uk": bradford,
