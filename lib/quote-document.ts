@@ -16,7 +16,7 @@ export const QUOTE_COMPANY = {
   slogan: "Safe Removal. Expert Teams. Protecting Tomorrow.",
   address: "321-323 High Road, Chadwell Heath, Essex, London RM6 6AX",
   phone: "08000418212",
-  email: "sales@capoholdings.co.uk",
+  email: "sales@asbestosteams.co.uk",
   vat: "GB7656757567",
   companyNo: "17311646",
   primary: "#FF6A1A",
