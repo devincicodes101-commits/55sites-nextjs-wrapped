@@ -5,6 +5,7 @@ import {
   splitPersonName,
   withTimeout,
 } from "@/lib/base44";
+import { createCrmLead, isCrmConfigured } from "@/lib/crm";
 import { isEmailConfigured, sendLeadAlertEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -102,6 +103,20 @@ export async function POST(request: Request) {
         crmError = err instanceof Error ? err.message : String(err);
         console.error("Base44 contact lead failed", err);
       }
+    }
+
+    // Also create a live Lead in the CRM so form enquiries appear in the CRM
+    // Leads section (alongside chat/quote leads) for the sales team to work.
+    if (isCrmConfigured()) {
+      const fullName = [first_name, last_name].filter(Boolean).join(" ").trim() || first_name;
+      await createCrmLead({
+        name: fullName,
+        email: emailValue || "",
+        phone: phoneValue,
+        serviceInterest: serviceValue,
+        source: "Website form",
+        notes: detailsValue || "Website contact form enquiry.",
+      }).catch((e) => console.error("contact CRM lead failed (continuing):", e));
     }
 
     if (useSupabase) {
