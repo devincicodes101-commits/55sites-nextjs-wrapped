@@ -3,8 +3,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { naturalize } from "@/lib/text";
 
-type Msg = { role: "user" | "assistant"; content: string };
-
 type QuoteCard = {
   ref: string;
   businessName: string;
@@ -17,8 +15,40 @@ type QuoteCard = {
   validityDays: number;
 };
 
+// A message can carry its own quote card, so multiple uploads stack in the thread.
+type Msg = { role: "user" | "assistant"; content: string; quote?: QuoteCard };
+
 function money(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+}
+
+function QuoteCardView({ quote, dark }: { quote: QuoteCard; dark: string }) {
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", maxWidth: "92%" }}>
+      <div style={{ background: dark, color: "#fff", padding: "10px 14px", fontSize: 12, letterSpacing: 1, fontWeight: 700 }}>
+        QUOTATION · {quote.ref}
+      </div>
+      <div style={{ padding: 14 }}>
+        {quote.lineItems.map((li, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+            <span>{naturalize(li.description)} ({li.quantity} {li.unit})</span>
+            <span>{money(li.total_gbp)}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#666", marginTop: 6 }}>
+          <span>Subtotal · VAT</span>
+          <span>{money(quote.subtotal)} · {money(quote.vat)}</span>
+        </div>
+        <div style={{ background: quote.primary, color: "#fff", borderRadius: 8, padding: "10px 12px", marginTop: 10, display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
+          <span>Total (inc. VAT)</span>
+          <span>{quote.totalDisplay}</span>
+        </div>
+        <div style={{ fontSize: 11, color: "#888", marginTop: 8 }}>
+          Valid for {quote.validityDays} days · a copy has been saved for our team to follow up.
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ChatAgent({
@@ -34,7 +64,6 @@ export default function ChatAgent({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [quote, setQuote] = useState<QuoteCard | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Survey-report upload (Task B) inside the chat.
@@ -58,7 +87,7 @@ export default function ChatAgent({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, quote, busy]);
+  }, [messages, busy]);
 
   async function uploadSurvey(e: FormEvent) {
     e.preventDefault();
@@ -120,15 +149,8 @@ export default function ChatAgent({
         ]);
       } else if (res.ok && data.quote) {
         const total = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(data.totalGbp || data.quote.total_gbp);
-        setMessages((m) => [
-          ...m,
-          {
-            role: "assistant",
-            content: `Thanks! I've read your survey and prepared your fixed-price quotation (${total} inc. VAT). It's been sent to ${upEmail.trim()} with a link to accept and choose a date for the work. A copy is saved for our team.`,
-          },
-        ]);
-        // Show the same formatted quote card as the typed-quote flow.
-        setQuote({
+        // Attach the quote card to this message so several uploads stack in the thread.
+        const card: QuoteCard = {
           ref: data.quoteRef || "",
           businessName,
           primary,
@@ -145,7 +167,15 @@ export default function ChatAgent({
           total: data.quote.total_gbp,
           totalDisplay: total,
           validityDays: data.quote.validity_days,
-        });
+        };
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content: `Thanks! I've read your survey and prepared your fixed-price quotation (${total} inc. VAT). It's been sent to ${upEmail.trim()} with a link to accept and choose a date for the work. A copy is saved for our team.`,
+            quote: card,
+          },
+        ]);
       } else {
         setMessages((m) => [
           ...m,
@@ -175,8 +205,12 @@ export default function ChatAgent({
         body: JSON.stringify({ messages: next }),
       });
       const data = await res.json().catch(() => ({}));
-      if (data.reply) setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
-      if (data.quote) setQuote(data.quote as QuoteCard);
+      if (data.reply || data.quote) {
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: data.reply || "", quote: (data.quote as QuoteCard) || undefined },
+        ]);
+      }
     } catch {
       setMessages((m) => [
         ...m,
@@ -239,29 +273,37 @@ export default function ChatAgent({
           {/* Messages */}
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 14, background: "#f7f7f8" }}>
             {messages.map((m, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  justifyContent: m.role === "user" ? "flex-end" : "flex-start",
-                  marginBottom: 10,
-                }}
-              >
-                <div
-                  style={{
-                    maxWidth: "80%",
-                    padding: "9px 12px",
-                    borderRadius: 12,
-                    fontSize: 14,
-                    lineHeight: 1.45,
-                    whiteSpace: "pre-wrap",
-                    background: m.role === "user" ? primary : "#fff",
-                    color: m.role === "user" ? "#fff" : "#222",
-                    border: m.role === "user" ? "none" : "1px solid #e5e7eb",
-                  }}
-                >
-                  {m.role === "assistant" ? naturalize(m.content) : m.content}
-                </div>
+              <div key={i}>
+                {m.content && (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: m.role === "user" ? "flex-end" : "flex-start",
+                      marginBottom: m.quote ? 6 : 10,
+                    }}
+                  >
+                    <div
+                      style={{
+                        maxWidth: "80%",
+                        padding: "9px 12px",
+                        borderRadius: 12,
+                        fontSize: 14,
+                        lineHeight: 1.45,
+                        whiteSpace: "pre-wrap",
+                        background: m.role === "user" ? primary : "#fff",
+                        color: m.role === "user" ? "#fff" : "#222",
+                        border: m.role === "user" ? "none" : "1px solid #e5e7eb",
+                      }}
+                    >
+                      {m.role === "assistant" ? naturalize(m.content) : m.content}
+                    </div>
+                  </div>
+                )}
+                {m.quote && (
+                  <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 10 }}>
+                    <QuoteCardView quote={m.quote} dark={dark} />
+                  </div>
+                )}
               </div>
             ))}
 
@@ -282,33 +324,6 @@ export default function ChatAgent({
               </div>
             )}
             <style>{"@keyframes chatspin { to { transform: rotate(360deg); } }"}</style>
-
-            {quote && (
-              <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", marginTop: 4 }}>
-                <div style={{ background: dark, color: "#fff", padding: "10px 14px", fontSize: 12, letterSpacing: 1, fontWeight: 700 }}>
-                  QUOTATION · {quote.ref}
-                </div>
-                <div style={{ padding: 14 }}>
-                  {quote.lineItems.map((li, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
-                      <span>{naturalize(li.description)} ({li.quantity} {li.unit})</span>
-                      <span>{money(li.total_gbp)}</span>
-                    </div>
-                  ))}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#666", marginTop: 6 }}>
-                    <span>Subtotal · VAT</span>
-                    <span>{money(quote.subtotal)} · {money(quote.vat)}</span>
-                  </div>
-                  <div style={{ background: quote.primary, color: "#fff", borderRadius: 8, padding: "10px 12px", marginTop: 10, display: "flex", justifyContent: "space-between", fontWeight: 700 }}>
-                    <span>Total (inc. VAT)</span>
-                    <span>{quote.totalDisplay}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#888", marginTop: 8 }}>
-                    Valid for {quote.validityDays} days · a copy has been saved for our team to follow up.
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Survey upload panel */}
