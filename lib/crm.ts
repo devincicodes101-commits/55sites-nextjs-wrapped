@@ -51,6 +51,7 @@ export async function createCrmLead(input: {
   quoteId?: string;
   source?: string;
   notes?: string;
+  message?: string;
 }): Promise<string | null> {
   try {
     const appId = process.env.BASE44_CRM_APP_ID!;
@@ -67,6 +68,9 @@ export async function createCrmLead(input: {
         priority: "medium",
         source: input.source || "AI Agent",
         converted_to_quote_id: input.quoteId || null,
+        // message = what the customer wrote (shows in "Initial Message / Enquiry");
+        // notes = internal/team note (shows in "Internal Notes").
+        message: input.message || "",
         notes: input.notes || "",
       }),
     });

@@ -115,7 +115,9 @@ export async function POST(request: Request) {
         phone: phoneValue,
         serviceInterest: serviceValue,
         source: "Website form",
-        notes: detailsValue || "Website contact form enquiry.",
+        // Customer's own words go to the "Initial Message / Enquiry" field.
+        message: detailsValue || undefined,
+        notes: "Website contact form enquiry.",
       }).catch((e) => console.error("contact CRM lead failed (continuing):", e));
     }
 
