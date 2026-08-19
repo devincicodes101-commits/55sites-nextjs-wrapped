@@ -3,7 +3,7 @@ import {
   totalsFromLineItems,
   type CatalogService,
 } from "./catalog-pricing";
-import type { GeneratedQuote } from "./gemini-quote";
+import type { GeneratedQuote, QuoteLineItem } from "./gemini-quote";
 
 /**
  * Instant quote from a website ENQUIRY form (no survey document).
@@ -115,6 +115,67 @@ export function assessEnquiry(input: {
     identified_acms: [],
     recommended_works: [svc.name],
     line_items: [line],
+    subtotal_gbp,
+    vat_gbp,
+    total_gbp,
+    assumptions: [
+      "Priced from the Asbestos UK Teams Service Catalog — the same rates apply on every website.",
+      "This quote is based on the information you provided and may be refined after a site visit.",
+    ],
+    exclusions: [],
+    validity_days: 30,
+    risk_notes: "",
+  };
+
+  return { status: "quoted", quote };
+}
+
+export type EnquiryItem = { service: string; fields: EnquiryFields };
+
+/**
+ * Assess an enquiry that may include SEVERAL services (e.g. "artex removal AND a
+ * garage roof"). Each item is priced against the catalog and all line items are
+ * combined into ONE quote. If any item still needs a measurement, we return
+ * "info_required" so the chat can ask for it before quoting.
+ */
+export function assessEnquiryItems(input: {
+  items: EnquiryItem[];
+  catalog: CatalogService[];
+}): EnquiryAssessment {
+  if (!input.items || input.items.length === 0) {
+    return { status: "unquotable", reason: "No services were provided." };
+  }
+
+  const lineItems: QuoteLineItem[] = [];
+  const worksNames: string[] = [];
+
+  for (const item of input.items) {
+    if (!item.service || !item.service.trim()) continue;
+    const one = assessEnquiry({ service: item.service, fields: item.fields, catalog: input.catalog });
+    // Missing a measurement for any item -> ask for it before quoting anything.
+    if (one.status === "info_required") return one;
+    // A service that isn't online-priceable is skipped (the priceable ones still quote).
+    if (one.status === "unquotable") continue;
+    lineItems.push(...one.quote.line_items);
+    worksNames.push(...one.quote.recommended_works);
+  }
+
+  if (lineItems.length === 0) {
+    return {
+      status: "unquotable",
+      reason: "None of the requested services are online-priceable — routed to our team.",
+    };
+  }
+
+  const { subtotal_gbp, vat_gbp, total_gbp } = totalsFromLineItems(lineItems);
+  const quote: GeneratedQuote = {
+    survey_summary: `Quote prepared from your website enquiry for: ${worksNames.join(", ")}.`,
+    survey_type: null,
+    property_address: null,
+    property_type: null,
+    identified_acms: [],
+    recommended_works: worksNames,
+    line_items: lineItems,
     subtotal_gbp,
     vat_gbp,
     total_gbp,

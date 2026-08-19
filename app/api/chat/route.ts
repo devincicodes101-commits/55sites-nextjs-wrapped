@@ -8,7 +8,7 @@ import {
 import { loadCatalogServices } from "@/lib/catalog-pricing";
 import { isChatConfigured, runChatTurn, type ChatMessage } from "@/lib/chat-agent";
 import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
-import { assessEnquiry } from "@/lib/enquiry-quote";
+import { assessEnquiryItems } from "@/lib/enquiry-quote";
 import { sendBrandedQuoteEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 
@@ -79,14 +79,17 @@ export async function POST(request: Request) {
     }
 
     // Still gathering info -> just return the assistant's next message.
-    if (!turn.ready_to_quote || !turn.service) {
+    if (!turn.ready_to_quote || !turn.items?.length) {
       return NextResponse.json({ reply: turn.reply, done: false });
     }
 
-    // Ready -> price deterministically from the catalog.
-    const assessment = assessEnquiry({
-      service: turn.service,
-      fields: { area_sqm: turn.area_sqm, length_lm: turn.length_lm, quantity: turn.quantity },
+    // Ready -> price EVERY requested service from the catalog and combine them
+    // into one quote (so "artex AND a garage roof" becomes a 2-line quotation).
+    const assessment = assessEnquiryItems({
+      items: turn.items.map((it) => ({
+        service: it.service,
+        fields: { area_sqm: it.area_sqm, length_lm: it.length_lm, quantity: it.quantity },
+      })),
       catalog,
     });
 
@@ -97,6 +100,7 @@ export async function POST(request: Request) {
 
     const quote = assessment.quote;
     const quoteRef = makeQuoteRef(site.city);
+    const serviceLabel = turn.items.map((it) => it.service).filter(Boolean).join(", ");
 
     // Send the quote. Prefer the CRM (branded quote + Accept button + diary +
     // stored in Quotes, like a real rep); fall back to our own email otherwise.
@@ -108,7 +112,7 @@ export async function POST(request: Request) {
           customerEmail: turn.customer_email,
           customerAddress: turn.customer_address || undefined,
           customerPhone: turn.customer_phone || undefined,
-          serviceInterest: turn.service,
+          serviceInterest: serviceLabel,
           quote,
           salesAgentName: "AI Chat Assistant",
         });
@@ -145,7 +149,7 @@ export async function POST(request: Request) {
           lastName,
           phone: turn.customer_phone || "",
           email: turn.customer_email,
-          service: turn.service,
+          service: serviceLabel,
           details: buildLeadDetailsFromQuote(quote),
           city: site.city,
           domain: site.domain,

@@ -14,13 +14,17 @@ export function isChatConfigured(): boolean {
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
-export type ChatTurn = {
-  reply: string;
-  ready_to_quote: boolean;
+export type ChatItem = {
   service: string;
   area_sqm: number | null;
   length_lm: number | null;
   quantity: number | null;
+};
+
+export type ChatTurn = {
+  reply: string;
+  ready_to_quote: boolean;
+  items: ChatItem[];
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
@@ -54,9 +58,10 @@ You can quote these catalog services:
 ${catalogList}
 
 How to run the conversation:
-- Greet briefly and find out which service they need.
-- Map their words to the closest catalog service above. If it could match more than one (e.g. a garage roof could be single or double), ask which.
-- Ask for the measurement that service needs: a "per_sqm" service needs the area in m²; a "per_unit" service needs a count; a "per_lm" service needs a length in linear metres; a "fixed" service needs no measurement.
+- Greet briefly and find out which service(s) they need.
+- IMPORTANT: a visitor can need MORE THAN ONE service in one enquiry (e.g. "artex removal AND a garage roof"). Capture EVERY service they mention as a separate entry in the "items" array — never drop or merge them. Ask about each one you're missing detail on.
+- Map each request to the closest catalog service above. If one could match more than one (e.g. a garage roof could be single or double), ask which.
+- For each service, get the measurement it needs: a "per_sqm" service needs the area in m²; a "per_unit" service needs a count; a "per_lm" service needs a length in linear metres; a "fixed" service needs no measurement.
 - Also collect the visitor's name, email, and phone number so we can send the quote.
 - Do NOT ask for their address. The address is only collected later, if and when they accept the quote (they'll be asked at that point) — asking now would over-complicate it.
 - Keep replies short, warm, and helpful — one question at a time. Never invent prices; a quote is produced automatically once you have enough.
@@ -65,11 +70,16 @@ How to run the conversation:
 Respond ONLY as strict JSON (no prose, no markdown):
 {
   "reply": "<your next message to the visitor>",
-  "ready_to_quote": <true ONLY when you know the exact catalog service, its required measurement (or it's fixed-price), AND the visitor's email AND phone>,
-  "service": "<exact catalog name from the list, or ''>",
-  "area_sqm": <number or null>,
-  "length_lm": <number or null>,
-  "quantity": <number or null>,
+  "ready_to_quote": <true ONLY when EVERY service in items has its exact catalog name and required measurement (or is fixed-price), AND you have the visitor's email AND phone>,
+  "items": [
+    {
+      "service": "<exact catalog name from the list>",
+      "area_sqm": <number or null>,
+      "length_lm": <number or null>,
+      "quantity": <number or null>
+    }
+    // ...one entry per service the visitor needs (include ALL of them)
+  ],
   "customer_name": "<name or null>",
   "customer_email": "<email or null>",
   "customer_phone": "<phone or null>",
@@ -102,13 +112,25 @@ Respond ONLY as strict JSON (no prose, no markdown):
     if (!content) return null;
     const p = JSON.parse(content) as Record<string, unknown>;
 
+    const rawItems = Array.isArray(p.items) ? p.items : [];
+    const items: ChatItem[] = rawItems
+      .map((it): ChatItem | null => {
+        const o = (it ?? {}) as Record<string, unknown>;
+        const service = typeof o.service === "string" ? o.service.trim() : "";
+        if (!service) return null;
+        return {
+          service,
+          area_sqm: num(o.area_sqm),
+          length_lm: num(o.length_lm),
+          quantity: num(o.quantity),
+        };
+      })
+      .filter((x): x is ChatItem => x !== null);
+
     return {
       reply: typeof p.reply === "string" && p.reply.trim() ? p.reply.trim() : "Sorry, could you say that again?",
       ready_to_quote: p.ready_to_quote === true,
-      service: typeof p.service === "string" ? p.service.trim() : "",
-      area_sqm: num(p.area_sqm),
-      length_lm: num(p.length_lm),
-      quantity: num(p.quantity),
+      items,
       customer_name:
         typeof p.customer_name === "string" && p.customer_name.trim() ? p.customer_name.trim() : null,
       customer_email:
