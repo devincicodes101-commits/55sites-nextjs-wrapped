@@ -170,6 +170,8 @@ export async function POST(request: Request) {
         customerAddress: quote.property_address || undefined,
         customerPhone: phone,
         serviceInterest: service,
+        originCity: site.city,
+        originDomain: site.domain,
         quote,
         salesAgentName: "AI Survey Assistant",
       });

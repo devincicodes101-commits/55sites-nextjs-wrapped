@@ -35,6 +35,8 @@ export type CrmQuoteInput = {
   clientType?: "residential" | "commercial";
   quote: GeneratedQuote;
   salesAgentName?: string;
+  originCity?: string;
+  originDomain?: string;
 };
 
 /**
@@ -52,9 +54,19 @@ export async function createCrmLead(input: {
   source?: string;
   notes?: string;
   message?: string;
+  originCity?: string;
+  originDomain?: string;
 }): Promise<string | null> {
   try {
     const appId = process.env.BASE44_CRM_APP_ID!;
+    // Record which city site the lead came from — in the source (visible in the
+    // Leads list) and spelled out in the notes for full traceability.
+    const baseSource = input.source || "AI Agent";
+    const source = input.originCity ? `${baseSource} (${input.originCity})` : baseSource;
+    const originLine = input.originCity
+      ? `Enquiry from the ${input.originCity} site${input.originDomain ? ` (${input.originDomain})` : ""}.`
+      : "";
+    const notes = [originLine, input.notes || ""].filter(Boolean).join(" ").trim();
     const res = await fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Lead`, {
       method: "POST",
       headers: crmHeaders(),
@@ -66,12 +78,12 @@ export async function createCrmLead(input: {
         estimated_value: input.estimatedValue ?? null,
         status: "new",
         priority: "medium",
-        source: input.source || "AI Agent",
+        source,
         converted_to_quote_id: input.quoteId || null,
         // message = what the customer wrote (shows in "Initial Message / Enquiry");
         // notes = internal/team note (shows in "Internal Notes").
         message: input.message || "",
-        notes: input.notes || "",
+        notes,
       }),
     });
     if (!res.ok) {
@@ -234,6 +246,8 @@ export async function createAndSendCrmQuote(
     estimatedValue: input.quote.total_gbp,
     quoteId,
     source: input.salesAgentName || "AI Agent",
+    originCity: input.originCity,
+    originDomain: input.originDomain,
     notes: `AI agent sent a quotation (total £${input.quote.total_gbp.toFixed(2)}). Awaiting customer response — call to close.`,
   });
 

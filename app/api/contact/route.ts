@@ -115,6 +115,8 @@ export async function POST(request: Request) {
         phone: phoneValue,
         serviceInterest: serviceValue,
         source: "Website form",
+        originCity: city,
+        originDomain: domain,
         // Customer's own words go to the "Initial Message / Enquiry" field.
         message: detailsValue || undefined,
         notes: "Website contact form enquiry.",

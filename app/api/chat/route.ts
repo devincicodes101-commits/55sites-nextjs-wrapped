@@ -113,6 +113,8 @@ export async function POST(request: Request) {
           customerAddress: turn.customer_address || undefined,
           customerPhone: turn.customer_phone || undefined,
           serviceInterest: serviceLabel,
+          originCity: site.city,
+          originDomain: site.domain,
           quote,
           salesAgentName: "AI Chat Assistant",
         });
