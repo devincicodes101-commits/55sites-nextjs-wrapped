@@ -84,11 +84,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         },
         priceRange: "££",
         image: siteConfig.hero?.image,
-        aggregateRating: {
-          "@type": "AggregateRating",
-          ratingValue: "4.9",
-          reviewCount: "127",
-        },
       },
       {
         "@type": "Service",
