@@ -10,8 +10,10 @@ import type { GeneratedQuote } from "./gemini-quote";
  *
  * Uses the REST API directly (verified working):
  *  - entities on the platform API host (app.base44.com)
- *  - functions on the app's own host (crmazzy.com) — the platform host rejects
- *    function calls ("use the app's subdomain instead").
+ *  - functions on the app's own host (andamangroup.co.uk — the CRM's current
+ *    live domain; was crmazzy.com) — the platform host rejects function calls
+ *    ("use the app's subdomain instead"). If the CRM domain changes again, set
+ *    BASE44_CRM_FUNCTIONS_URL in the env instead of editing this file.
  *
  * Falls back to our own quote email when BASE44_CRM_* env vars are unset.
  */
@@ -20,7 +22,7 @@ export function isCrmConfigured(): boolean {
 }
 
 const ENTITIES_BASE = process.env.BASE44_CRM_API_URL || "https://app.base44.com/api";
-const FUNCTIONS_BASE = process.env.BASE44_CRM_FUNCTIONS_URL || "https://crmazzy.com/api";
+const FUNCTIONS_BASE = process.env.BASE44_CRM_FUNCTIONS_URL || "https://andamangroup.co.uk/api";
 
 function crmHeaders(): Record<string, string> {
   return { "Content-Type": "application/json", api_key: process.env.BASE44_CRM_TOKEN! };
