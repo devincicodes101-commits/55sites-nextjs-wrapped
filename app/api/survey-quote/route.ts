@@ -60,6 +60,14 @@ export async function POST(request: Request) {
   let buffer: Buffer;
   let fileType: string;
   let fileName: string;
+  // Optional brand override sent by embedded widgets (Base44 sites on other
+  // domains). Cross-origin calls arrive on our host, so getSiteConfig() can't
+  // tell which of the 277 sites it is — the widget passes its own name/city/
+  // phone so the quote ref + branding match that site, with no per-domain config.
+  let rawBrandName = "";
+  let rawBrandCity = "";
+  let rawBrandPhone = "";
+  let rawBrandDomain = "";
 
   const contentType = request.headers.get("content-type") || "";
 
@@ -78,6 +86,10 @@ export async function POST(request: Request) {
     details = String(body.details || "").trim();
     const surveyUrl = String(body.surveyUrl || "").trim();
     fileName = String(body.fileName || "survey").trim();
+    rawBrandName = String(body.brandName || "").trim();
+    rawBrandCity = String(body.brandCity || "").trim();
+    rawBrandPhone = String(body.brandPhone || "").trim();
+    rawBrandDomain = String(body.brandDomain || "").trim();
 
     // Only allow fetching from our own Blob store, never arbitrary URLs.
     if (!/^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i.test(surveyUrl)) {
@@ -102,6 +114,10 @@ export async function POST(request: Request) {
     email = String(form.get("email") || "").trim();
     service = String(form.get("service") || "").trim();
     details = String(form.get("details") || "").trim();
+    rawBrandName = String(form.get("brandName") || "").trim();
+    rawBrandCity = String(form.get("brandCity") || "").trim();
+    rawBrandPhone = String(form.get("brandPhone") || "").trim();
+    rawBrandDomain = String(form.get("brandDomain") || "").trim();
     const file = form.get("surveyReport");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Please upload a survey report (PDF or image)" }, { status: 400 });
@@ -135,7 +151,13 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const quoteRef = makeQuoteRef(site.city);
+  // Effective brand: what the widget sent, else the host-resolved site.
+  const brandCity = rawBrandCity || site.city;
+  const brandName = rawBrandName || site.businessName;
+  const brandPhone = rawBrandPhone || site.phoneDisplay;
+  const brandDomain = rawBrandDomain || site.domain;
+
+  const quoteRef = makeQuoteRef(brandCity);
   const customerName = `${firstName} ${lastName}`.trim();
 
   try {
@@ -145,9 +167,9 @@ export async function POST(request: Request) {
       mimeType: fileType,
       fileName,
       customerName,
-      city: site.city,
+      city: brandCity,
       region: site.region,
-      businessName: site.businessName,
+      businessName: brandName,
       pricingHints: catalogToPricingHints(catalog),
       catalog,
     });
@@ -170,8 +192,8 @@ export async function POST(request: Request) {
         customerAddress: quote.property_address || undefined,
         customerPhone: phone,
         serviceInterest: service,
-        originCity: site.city,
-        originDomain: site.domain,
+        originCity: brandCity,
+        originDomain: brandDomain,
         quote,
         salesAgentName: "AI Survey Assistant",
       });
@@ -180,9 +202,9 @@ export async function POST(request: Request) {
       const emailResult = await sendQuoteEmail({
         to: email,
         customerName,
-        businessName: site.businessName,
-        city: site.city,
-        phoneDisplay: site.phoneDisplay,
+        businessName: brandName,
+        city: brandCity,
+        phoneDisplay: brandPhone,
         quote,
         quoteRef,
         catalog,
@@ -198,8 +220,8 @@ export async function POST(request: Request) {
       email,
       service,
       details: buildLeadDetailsFromQuote(quote, details || undefined),
-      city: site.city,
-      domain: site.domain,
+      city: brandCity,
+      domain: brandDomain,
       quote_ref: quoteRef,
       quote_total_gbp: quote.total_gbp,
       quote_json: JSON.stringify(quote),

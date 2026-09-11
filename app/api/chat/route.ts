@@ -61,19 +61,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "messages required" }, { status: 400 });
   }
 
+  // Optional brand override sent by embedded widgets (Base44 sites on other
+  // domains). Cross-origin calls arrive on our host, so getSiteConfig() falls
+  // back to the default brand — the widget passes its own name/city/phone so the
+  // quote ref + branding match that site, with no per-domain config for all 277.
+  const brandCity = String(body.brandCity || "").trim() || site.city;
+  const brandName = String(body.brandName || "").trim() || site.businessName;
+  const brandPhone = String(body.brandPhone || "").trim() || site.phoneDisplay;
+  const brandDomain = String(body.brandDomain || "").trim() || site.domain;
+
   try {
     const catalog = await loadCatalogServices();
     const turn = await runChatTurn({
       messages,
       catalog,
-      businessName: site.businessName,
-      city: site.city,
-      phoneDisplay: site.phoneDisplay,
+      businessName: brandName,
+      city: brandCity,
+      phoneDisplay: brandPhone,
     });
 
     if (!turn) {
       return NextResponse.json({
-        reply: `Sorry, I'm having trouble right now — please call us on ${site.phoneDisplay} and we'll help.`,
+        reply: `Sorry, I'm having trouble right now — please call us on ${brandPhone} and we'll help.`,
         done: false,
       });
     }
@@ -99,7 +108,7 @@ export async function POST(request: Request) {
     }
 
     const quote = assessment.quote;
-    const quoteRef = makeQuoteRef(site.city);
+    const quoteRef = makeQuoteRef(brandCity);
     const serviceLabel = turn.items.map((it) => it.service).filter(Boolean).join(", ");
 
     // Send the quote. Prefer the CRM (branded quote + Accept button + diary +
@@ -113,8 +122,8 @@ export async function POST(request: Request) {
           customerAddress: turn.customer_address || undefined,
           customerPhone: turn.customer_phone || undefined,
           serviceInterest: serviceLabel,
-          originCity: site.city,
-          originDomain: site.domain,
+          originCity: brandCity,
+          originDomain: brandDomain,
           quote,
           salesAgentName: "AI Chat Assistant",
         });
@@ -153,8 +162,8 @@ export async function POST(request: Request) {
           email: turn.customer_email,
           service: serviceLabel,
           details: buildLeadDetailsFromQuote(quote),
-          city: site.city,
-          domain: site.domain,
+          city: brandCity,
+          domain: brandDomain,
           quote_ref: quoteRef,
           quote_total_gbp: quote.total_gbp,
           quote_json: JSON.stringify(quote),
@@ -173,7 +182,7 @@ export async function POST(request: Request) {
       done: true,
       quote: {
         ref: quoteRef,
-        businessName: site.businessName,
+        businessName: brandName,
         primary: site.theme?.primary || "#c2410c",
         lineItems: quote.line_items.map((li) => ({
           description: li.description,
