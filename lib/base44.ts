@@ -135,11 +135,16 @@ export async function createQuoteInBase44(payload: QuoteLeadPayload) {
 
   // last_name: CRM schemas often require it — use "-" when the compact form only has one name.
   const lastName = (payload.lastName ?? "").trim() || "-";
+  // phone: also required by the CRM Lead schema, but emailed-in surveys and chat
+  // enquiries can legitimately have none. compactRecord drops empty values, so an
+  // absent phone made Base44 reject the whole lead (422 "Field required").
+  const rawPhone = (payload.phone ?? "").trim();
+  const phone = rawPhone || "-";
 
   const record = compactRecord({
     first_name: payload.firstName,
     last_name: lastName,
-    phone: payload.phone,
+    phone,
     email: payload.email,
     service: payload.service,
     // Dual-write for schema compatibility (pre/post "details" rename).
@@ -157,7 +162,7 @@ export async function createQuoteInBase44(payload: QuoteLeadPayload) {
     quote_emailed: payload.quote_emailed,
   });
 
-  if (!record.phone && !record.email) {
+  if (!rawPhone && !record.email) {
     throw new Error("Phone or email is required to create a Base44 lead");
   }
   if (!record.first_name) {

@@ -227,24 +227,33 @@ export async function POST(request: Request) {
       emailWarning = emailResult.sent ? undefined : emailResult.error;
     }
 
-    await createQuoteInBase44({
-      firstName,
-      lastName,
-      phone,
-      email,
-      service,
-      details: buildLeadDetailsFromQuote(quote, details || undefined),
-      city: brandCity,
-      domain: brandDomain,
-      quote_ref: quoteRef,
-      quote_total_gbp: quote.total_gbp,
-      quote_json: JSON.stringify(quote),
-      survey_summary: quote.survey_summary,
-      survey_file_name: fileName,
-      quote_emailed: emailSent,
-      lead_source: isEmailIntake ? "email_survey_intake" : "survey_quote_pilot",
-      status: "quoted",
-    });
+    // The quote email has already gone out by this point, so a CRM write failure
+    // must NOT fail the request: a 500 here would make the caller (n8n) retry and
+    // send the customer a second quote. Record it as a warning instead.
+    let crmWarning: string | undefined;
+    try {
+      await createQuoteInBase44({
+        firstName,
+        lastName,
+        phone,
+        email,
+        service,
+        details: buildLeadDetailsFromQuote(quote, details || undefined),
+        city: brandCity,
+        domain: brandDomain,
+        quote_ref: quoteRef,
+        quote_total_gbp: quote.total_gbp,
+        quote_json: JSON.stringify(quote),
+        survey_summary: quote.survey_summary,
+        survey_file_name: fileName,
+        quote_emailed: emailSent,
+        lead_source: isEmailIntake ? "email_survey_intake" : "survey_quote_pilot",
+        status: "quoted",
+      });
+    } catch (err) {
+      crmWarning = err instanceof Error ? err.message : "CRM lead save failed";
+      console.error("survey quote lead save failed (continuing):", err);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -253,6 +262,7 @@ export async function POST(request: Request) {
       noAsbestos: nothingToQuote,
       emailSent,
       emailWarning,
+      crmWarning,
       quote: {
         survey_summary: quote.survey_summary,
         property_address: quote.property_address,
