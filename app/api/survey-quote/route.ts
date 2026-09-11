@@ -68,6 +68,10 @@ export async function POST(request: Request) {
   let rawBrandCity = "";
   let rawBrandPhone = "";
   let rawBrandDomain = "";
+  // Intake source. "email_intake" (n8n forwards a survey emailed to sales@ etc.)
+  // relaxes phone/service, which an inbound email won't carry — the sender is the
+  // customer and the CRM emails the quote straight back to them.
+  let rawSource = "";
 
   const contentType = request.headers.get("content-type") || "";
 
@@ -90,6 +94,7 @@ export async function POST(request: Request) {
     rawBrandCity = String(body.brandCity || "").trim();
     rawBrandPhone = String(body.brandPhone || "").trim();
     rawBrandDomain = String(body.brandDomain || "").trim();
+    rawSource = String(body.source || "").trim();
 
     // Only allow fetching from our own Blob store, never arbitrary URLs.
     if (!/^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i.test(surveyUrl)) {
@@ -118,6 +123,7 @@ export async function POST(request: Request) {
     rawBrandCity = String(form.get("brandCity") || "").trim();
     rawBrandPhone = String(form.get("brandPhone") || "").trim();
     rawBrandDomain = String(form.get("brandDomain") || "").trim();
+    rawSource = String(form.get("source") || "").trim();
     const file = form.get("surveyReport");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Please upload a survey report (PDF or image)" }, { status: 400 });
@@ -127,10 +133,18 @@ export async function POST(request: Request) {
     buffer = Buffer.from(await file.arrayBuffer());
   }
 
-  if (!firstName || !lastName) {
+  // Emailed-in surveys carry the sender as customer but no phone/service; derive a
+  // name from the address and default the service so the pipeline can still quote.
+  const isEmailIntake = rawSource === "email_intake";
+  if (isEmailIntake) {
+    if (!firstName) firstName = (email.split("@")[0] || "Email").replace(/[._-]+/g, " ").trim() || "Email";
+    if (!service) service = "Asbestos Survey";
+  }
+
+  if (!firstName || (!lastName && !isEmailIntake)) {
     return NextResponse.json({ error: "First and last name are required" }, { status: 400 });
   }
-  if (!phone) {
+  if (!phone && !isEmailIntake) {
     return NextResponse.json({ error: "Phone is required" }, { status: 400 });
   }
   if (!email || !email.includes("@")) {
@@ -228,7 +242,7 @@ export async function POST(request: Request) {
       survey_summary: quote.survey_summary,
       survey_file_name: fileName,
       quote_emailed: emailSent,
-      lead_source: "survey_quote_pilot",
+      lead_source: isEmailIntake ? "email_survey_intake" : "survey_quote_pilot",
       status: "quoted",
     });
 
