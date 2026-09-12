@@ -298,6 +298,71 @@ export async function sendMissingInfoEmail(input: {
   return { sent: true };
 }
 
+export function buildNoAsbestosEmailHtml(input: {
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  propertyAddress?: string;
+}): string {
+  const forProperty = input.propertyAddress
+    ? ` for <strong>${esc(input.propertyAddress)}</strong>`
+    : "";
+  return `
+  <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#222">
+    <h1 style="font-size:22px;margin:0 0 8px">${esc(input.businessName)}</h1>
+    <p style="margin:0 0 24px;color:#666">Your asbestos survey${input.propertyAddress ? ` — ${esc(input.propertyAddress)}` : ""}</p>
+    <p>Dear ${esc(input.customerName)},</p>
+    <p>Thanks for sending over the survey${forProperty}.</p>
+    <p>We have reviewed it and <strong>no asbestos-containing materials were identified or presumed</strong> in the areas surveyed. All samples returned negative results, so there are no removal works required and nothing for us to quote.</p>
+    <p>One thing worth knowing: a Management Survey is non-intrusive by design, so it does not cover areas such as floor voids, wall cavities or the fabric of the building. If you are planning refurbishment or demolition work, a Refurbishment/Demolition Survey would be needed beforehand, as that covers areas a management survey cannot reach. We would be glad to quote for one.</p>
+    <p>If you have another property or a different survey you would like priced, just reply to this email and we will take a look.</p>
+    <p style="margin-top:24px">Prefer to talk it through? Call us on <strong>${esc(input.phoneDisplay)}</strong>.</p>
+    <p style="color:#888;font-size:12px;margin-top:32px">${esc(input.businessName)} — ${esc(input.city)}.</p>
+  </div>`;
+}
+
+/**
+ * Sent when a survey identifies no asbestos requiring removal. There is no quote
+ * to send, but the customer should still hear back rather than get silence.
+ */
+export async function sendNoAsbestosEmail(input: {
+  to: string;
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  propertyAddress?: string;
+}): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "Email not configured (RESEND_API_KEY / QUOTE_FROM_EMAIL)" };
+  }
+
+  const from = process.env.QUOTE_FROM_EMAIL!;
+  const apiKey = process.env.RESEND_API_KEY!;
+  const html = buildNoAsbestosEmailHtml(input);
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [input.to],
+      subject: `${input.businessName} — your asbestos survey: no removal works required`,
+      html,
+    }),
+  });
+
+  const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+  if (!res.ok) {
+    return { sent: false, error: data.message || `Resend error ${res.status}` };
+  }
+  return { sent: true };
+}
+
 /**
  * Internal alert so callback / contact enquiries are not lost if CRM write fails.
  * Sends to LEADS_NOTIFY_EMAIL, or the address portion of QUOTE_FROM_EMAIL.

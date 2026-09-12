@@ -4,7 +4,7 @@ import { catalogToPricingHints, loadCatalogServices } from "@/lib/catalog-pricin
 import { generateQuoteFromSurvey, isGeminiConfigured } from "@/lib/gemini-quote";
 import { isSurveyQuotePilotEnabled } from "@/lib/pilot";
 import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
-import { isEmailConfigured, sendQuoteEmail } from "@/lib/send-quote-email";
+import { isEmailConfigured, sendNoAsbestosEmail, sendQuoteEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 
 export const runtime = "nodejs";
@@ -196,9 +196,22 @@ export async function POST(request: Request) {
     // Send the quote via the CRM (branded quote + Accept button + choose-date/
     // diary + stored in Quotes, like a real rep); fall back to our own email.
     let emailSent = false;
+    let noAsbestosEmailSent = false;
     let emailWarning: string | undefined;
     if (nothingToQuote) {
-      // No quote to send.
+      // There is no quote to send, but silence is the wrong answer: the customer
+      // sent us a survey and is waiting to hear back. Tell them the good news and
+      // point at the one thing that would need a further survey.
+      const r = await sendNoAsbestosEmail({
+        to: email,
+        customerName,
+        businessName: brandName,
+        city: brandCity,
+        phoneDisplay: brandPhone,
+        propertyAddress: quote.property_address || undefined,
+      });
+      noAsbestosEmailSent = r.sent;
+      emailWarning = r.sent ? undefined : r.error;
     } else if (isCrmConfigured()) {
       const r = await createAndSendCrmQuote({
         customerName,
@@ -261,6 +274,7 @@ export async function POST(request: Request) {
       totalGbp: quote.total_gbp,
       noAsbestos: nothingToQuote,
       emailSent,
+      noAsbestosEmailSent,
       emailWarning,
       crmWarning,
       quote: {
