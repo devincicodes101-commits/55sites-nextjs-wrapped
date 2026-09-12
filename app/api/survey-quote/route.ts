@@ -265,6 +265,10 @@ export async function POST(request: Request) {
       crmWarning,
       quote: {
         survey_summary: quote.survey_summary,
+        // Surfaced so the caller (and the n8n execution log) can see how the
+        // document was classified without re-running the pipeline.
+        document_type: quote.document_type,
+        out_of_scope_requests: quote.out_of_scope_requests,
         property_address: quote.property_address,
         line_items: quote.line_items,
         subtotal_gbp: quote.subtotal_gbp,
