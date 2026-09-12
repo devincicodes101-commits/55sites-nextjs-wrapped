@@ -156,8 +156,15 @@ export async function createCrmQuote(input: CrmQuoteInput): Promise<string | nul
     // so use that instead — otherwise an estimate made from a photograph of an
     // UNCONFIRMED material reaches the customer looking like a firm quotation.
     const isPhotoEnquiry = (input.quote.document_type || "").toLowerCase() === "photo_enquiry";
+    // These catalog_names are internal sentinels for works with no Service Catalog
+    // entry — they are not service names and must never be shown to a customer
+    // ("AI_ESTIMATE" as a line item tells them nothing). Use the description.
+    const SENTINEL_NAMES = new Set(["AI_ESTIMATE", "MANUAL_QUOTE_REQUIRED", "OTHER"]);
     const items: Array<Record<string, unknown>> = input.quote.line_items.map((li) => ({
-      service_name: isPhotoEnquiry ? li.description : li.catalog_name || li.description,
+      service_name:
+        isPhotoEnquiry || SENTINEL_NAMES.has(li.catalog_name ?? "")
+          ? li.description
+          : li.catalog_name || li.description,
       quantity: li.quantity,
       unit_price: li.unit_price_gbp,
       unit_type: li.unit,
