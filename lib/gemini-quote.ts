@@ -18,6 +18,10 @@ export type QuoteLineItem = {
 
 export type GeneratedQuote = {
   survey_summary: string;
+  /** "survey_report" | "photo_enquiry" | "other" — drives indicative vs firm pricing. */
+  document_type?: string | null;
+  /** Works the customer asked for that we don't offer (roofing, glazing, general build). */
+  out_of_scope_requests?: string[];
   survey_type: string | null;
   property_address: string | null;
   property_type: string | null;
@@ -36,6 +40,8 @@ export type GeneratedQuote = {
 /** Gemini extracts scope only — unit prices come from the Service Catalog in code. */
 type SurveyScopeDraft = {
   survey_summary: string;
+  document_type?: string | null;
+  out_of_scope_requests?: string[];
   survey_type: string | null;
   property_address: string | null;
   property_type: string | null;
@@ -57,6 +63,8 @@ const SCOPE_JSON_SCHEMA = {
   type: "object",
   properties: {
     survey_summary: { type: "string" },
+    document_type: { type: ["string", "null"] },
+    out_of_scope_requests: { type: "array", items: { type: "string" } },
     survey_type: { type: ["string", "null"] },
     property_address: { type: ["string", "null"] },
     property_type: { type: ["string", "null"] },
@@ -143,6 +151,20 @@ ${catalogNames.map((n) => `- "${n}"`).join("\n")}
 Catalog rate reference (for understanding unit types only — do not quote these numbers in the JSON):
 ${pricingText}
 
+DOCUMENT TYPE (set document_type FIRST — it decides which rules apply):
+- "survey_report": a formal asbestos survey/report containing ACM item entries or a register (rows with Material Description, Location and Action). Every rule in this prompt applies as written.
+- "photo_enquiry": a customer enquiry made of photographs and/or written requests, with NO ACM register, no sample results and no Action column — e.g. "please quote to remove my garage roof" with pictures attached. Apply the PHOTO ENQUIRY RULES below.
+- "other": anything else.
+
+PHOTO ENQUIRY RULES (apply ONLY when document_type is "photo_enquiry" — these never affect survey reports):
+- Examine the PHOTOGRAPHS themselves. Identify materials that are VISUALLY CONSISTENT WITH asbestos (corrugated cement roof sheets, textured coating/Artex, cement vergeboards/soffits/panels, flue pipes, rainwater goods). Asbestos can NEVER be confirmed from a photograph — never state or imply it is confirmed.
+- Add a line_item for each likely ACM the customer is asking about, choosing catalog_name from the SERVICE CATALOG exactly as normal.
+- EVERY description MUST begin with exactly: "Indicative (subject to survey & sampling) - ".
+- Estimate quantity conservatively from what is visible, and state in assumptions how you derived it (e.g. "Single garage roof estimated at 20 m2 from the photographs - to be confirmed on site").
+- Any requested work that is NOT asbestos removal (roof repairs, re-roofing or roof replacement, glazing, window frames, general building work) goes in out_of_scope_requests. Do NOT create a line_item for it and do NOT price it.
+- identified_acms must be worded as "likely" / "consistent with", never as confirmed.
+- assumptions MUST state that asbestos presence is unconfirmed, that a survey with sample analysis is required before any works, and that the figures are indicative and not a firm quotation.
+
 SURVEY TYPE (important — set survey_type and let it drive what you quote):
 - Set survey_type to one of: "management", "refurbishment_demolition", "reinspection", or "other".
 - A MANAGEMENT survey locates asbestos so it can be MANAGED IN PLACE. For a management survey, ONLY add a line_item for a material whose recommended Action is "Remove". Materials whose Action is "Manage" (leave in place / monitor) are NOT removal works — do NOT create line_items for them, and do NOT quote them for removal. If a management survey has no "Remove" items, return an empty line_items array.
@@ -157,7 +179,7 @@ Rules:
 - Double-check every quantity against the report before returning — a wrong quantity produces a wrong price.
 - description: short human-readable line referencing location/ACM from the report.
 - Do not invent works that are not supported by the report.
-- IGNORE non-item pages: cover/title pages, contents, introduction, survey objectives/techniques, caveats, disclaimers, the material assessment algorithm, certificates of analysis, site plans, quality assurance, and standalone photo pages. Extract works ONLY from the actual ACM item entries and summary/register tables — the rows that have a Material Description, Location and Action. Skip "Negative"/"No Suspect Materials Found"/"No Asbestos Detected" entries.
+- (survey_report only — never apply this to a photo_enquiry) IGNORE non-item pages: cover/title pages, contents, introduction, survey objectives/techniques, caveats, disclaimers, the material assessment algorithm, certificates of analysis, site plans, quality assurance, and standalone photo pages. Extract works ONLY from the actual ACM item entries and summary/register tables — the rows that have a Material Description, Location and Action. Skip "Negative"/"No Suspect Materials Found"/"No Asbestos Detected" entries.
 - Prefer the report's own quantity/units (m², number of sheets/units) and its Action column when deciding what to quote.
 - ONE physical element = ONE line_item (do NOT double-count). Surveys frequently record the SAME component twice from different viewpoints — most commonly a roof logged both internally ("above ceiling") AND externally ("external roof / all elevations"), or a partition wall recorded from each side. These are separate survey RECORDS but a single removal job. When two or more removal records clearly describe the same physical element — same material type and the same or near-identical area/quantity, in the same building — quote it ONCE, and note the merged record IDs in assumptions. Only merge when they are plainly the same element; keep genuinely separate items apart (e.g. two different rooms' ceilings).
 - If the report is unclear on quantity, state the assumption and use a conservative measurable estimate.
@@ -222,7 +244,11 @@ Rules:
   //  2. A MANAGEMENT survey where all items are "Manage in place" (nothing to remove).
   // Return a clean, explanatory response instead of erroring the whole request.
   const isManagement = (draft.survey_type || "").toLowerCase().includes("manage");
+  const isPhotoEnquiry = (draft.document_type || "").toLowerCase() === "photo_enquiry";
+  const outOfScope = Array.isArray(draft.out_of_scope_requests) ? draft.out_of_scope_requests : [];
   if (!Array.isArray(draft.line_items) || draft.line_items.length === 0) {
+    const photoEnquiryNote =
+      "We could not identify any material likely to contain asbestos in the photographs supplied. Asbestos cannot be confirmed or ruled out from photographs — please contact us and we'll arrange a survey with sample analysis.";
     const managementNote =
       "This is an asbestos MANAGEMENT survey: the materials identified are recommended to be managed in place, not removed, so no removal works have been quoted. If you need asbestos removal, you'll usually need a refurbishment/demolition survey first — please contact us and we'll advise.";
     const noAsbestosNote =
@@ -230,10 +256,14 @@ Rules:
     return {
       survey_summary: naturalize(
         draft.survey_summary ||
-          (isManagement
-            ? "This management survey does not identify any asbestos requiring removal (materials are recommended to be managed in place)."
-            : "The uploaded survey did not identify any asbestos-containing materials requiring removal."),
+          (isPhotoEnquiry
+            ? "No material likely to contain asbestos could be identified from the photographs supplied."
+            : isManagement
+              ? "This management survey does not identify any asbestos requiring removal (materials are recommended to be managed in place)."
+              : "The uploaded survey did not identify any asbestos-containing materials requiring removal."),
       ),
+      document_type: draft.document_type ?? null,
+      out_of_scope_requests: outOfScope,
       survey_type: draft.survey_type ?? null,
       property_address: draft.property_address ?? null,
       property_type: draft.property_type ?? null,
@@ -245,7 +275,7 @@ Rules:
       total_gbp: 0,
       assumptions: [
         ...(Array.isArray(draft.assumptions) ? draft.assumptions : []),
-        isManagement ? managementNote : noAsbestosNote,
+        isPhotoEnquiry ? photoEnquiryNote : isManagement ? managementNote : noAsbestosNote,
       ],
       exclusions: Array.isArray(draft.exclusions) ? draft.exclusions : [],
       validity_days: typeof draft.validity_days === "number" ? draft.validity_days : 30,
@@ -345,6 +375,19 @@ Rules:
     );
   }
 
+  // Photos can suggest asbestos but never confirm it, so a photo enquiry must not
+  // read as a firm quotation. Lead with that, and say plainly what we won't do.
+  if (isPhotoEnquiry) {
+    if (outOfScope.length > 0) {
+      assumptions.unshift(
+        `NOT INCLUDED — we are a licensed asbestos removal contractor and do not carry out the following work you asked about: ${outOfScope.join("; ")}. Only the asbestos works listed above are priced.`,
+      );
+    }
+    assumptions.unshift(
+      "INDICATIVE ONLY — this is an estimate from photographs, not a firm quotation. Asbestos cannot be confirmed from a photograph: a survey with sample analysis is required before any works, and the final price may change once quantities and material type are confirmed on site.",
+    );
+  }
+
   if (isManagement) {
     assumptions.unshift(
       "This is a management survey, so only items the report marks for removal have been quoted; materials recommended to be managed in place are not included. Removal of those normally requires a refurbishment/demolition survey first.",
@@ -357,6 +400,8 @@ Rules:
 
   return {
     survey_summary: naturalize(draft.survey_summary),
+    document_type: draft.document_type ?? null,
+    out_of_scope_requests: outOfScope,
     survey_type: draft.survey_type ?? null,
     property_address: draft.property_address ?? null,
     property_type: draft.property_type ?? null,

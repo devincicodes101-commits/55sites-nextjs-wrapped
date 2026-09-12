@@ -200,8 +200,15 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number, label: str
 }
 
 export function buildLeadDetailsFromQuote(quote: GeneratedQuote, extras?: string): string {
+  const isPhotoEnquiry = (quote.document_type || "").toLowerCase() === "photo_enquiry";
+  const outOfScope = quote.out_of_scope_requests ?? [];
   const lines = [
     extras?.trim() || null,
+    // Flag it for the rep: a photo enquiry needs a survey booked, not a job booked.
+    isPhotoEnquiry
+      ? "PHOTO ENQUIRY — priced from photographs, NOT a survey. Asbestos unconfirmed; book a survey with sampling before any works."
+      : null,
+    outOfScope.length > 0 ? `Customer also asked for (not offered): ${outOfScope.join("; ")}` : null,
     `Survey summary: ${quote.survey_summary}`,
     quote.property_address ? `Property: ${quote.property_address}` : null,
     `ACMs: ${quote.identified_acms.join("; ") || "n/a"}`,
