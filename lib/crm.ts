@@ -151,14 +151,34 @@ async function createOrGetCustomerId(input: {
 export async function createCrmQuote(input: CrmQuoteInput): Promise<string | null> {
   try {
     const appId = process.env.BASE44_CRM_APP_ID!;
-    const items = input.quote.line_items.map((li) => ({
-      service_name: li.catalog_name || li.description,
+    // The quote email renders service_name, not description. For a photo enquiry
+    // the "Indicative (subject to survey & sampling)" caveat lives in description,
+    // so use that instead — otherwise an estimate made from a photograph of an
+    // UNCONFIRMED material reaches the customer looking like a firm quotation.
+    const isPhotoEnquiry = (input.quote.document_type || "").toLowerCase() === "photo_enquiry";
+    const items: Array<Record<string, unknown>> = input.quote.line_items.map((li) => ({
+      service_name: isPhotoEnquiry ? li.description : li.catalog_name || li.description,
       quantity: li.quantity,
       unit_price: li.unit_price_gbp,
       unit_type: li.unit,
       total: li.total_gbp,
       description: li.description,
     }));
+
+    // The customer asked for things we don't do (roof repairs, glazing). Say so on
+    // the quote at £0 rather than answering one of their three questions in
+    // silence, which reads as if we ignored the other two.
+    const outOfScope = input.quote.out_of_scope_requests ?? [];
+    if (isPhotoEnquiry && outOfScope.length > 0) {
+      items.push({
+        service_name: `Not included — we are asbestos removal specialists and do not carry out: ${outOfScope.join("; ")}`,
+        quantity: 1,
+        unit_price: 0,
+        unit_type: "job",
+        total: 0,
+        description: "Excluded from this quotation.",
+      });
+    }
 
     // Strip a trailing placeholder last-name (e.g. "Test -" -> "Test").
     const customerName = input.customerName.replace(/\s*-\s*$/, "").trim() || input.customerName;
