@@ -289,7 +289,9 @@ export async function POST(request: Request) {
       const r = renderReply(
         displayName,
         [
-          `Thanks for the details about your ${intent.summary || "asbestos job"}. To finish your fixed-price quote, could you let me know:`,
+          // intent.summary is a third-person sentence ("The customer wants to
+          // remove artex..."), so it cannot follow "your". Use the service name.
+          `Thanks for your enquiry about ${intent.identified_service || "asbestos removal"}. To finish your fixed-price quote, could you let me know:`,
           `Reply to this email with that and I'll send the quote straight over${callLine}.`,
         ],
         assessment.missing,
