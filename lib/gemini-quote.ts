@@ -8,6 +8,8 @@ import { estimateUnmatchedItem, isOpenAIConfigured } from "./openai-estimate";
 import { naturalize } from "./text";
 
 export type QuoteLineItem = {
+  /** Base44 Service record id when this line matched the catalogue. */
+  catalog_id?: string;
   description: string;
   quantity: number;
   unit: string;
@@ -292,6 +294,7 @@ Rules:
   // item, that item falls back to a visible "Manual quote required" line so scope
   // is never silently dropped.
   const catalogLineItems: QuoteLineItem[] = priced.line_items.map((li) => ({
+    catalog_id: li.catalog_id,
     description: li.description,
     quantity: li.quantity,
     unit: li.unit,

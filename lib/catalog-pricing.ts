@@ -9,6 +9,10 @@
 export type CatalogUnitType = "fixed" | "per_sqm" | "per_unit" | string;
 
 export type CatalogService = {
+  /** Base44 Service record id, when the catalogue came from the CRM. Lets a quote
+   *  line point at the real service so the CRM renders its own full description
+   *  and images, exactly as it does for a quote a rep built by hand. */
+  id?: string;
   name: string;
   description: string;
   category: string;
@@ -253,6 +257,7 @@ export type CatalogScopeLine = {
 };
 
 export type PricedLineItem = {
+  catalog_id?: string;
   catalog_name: string;
   description: string;
   quantity: number;
@@ -322,6 +327,7 @@ export function applyCatalogRates(
     }
 
     line_items.push({
+      catalog_id: service.id,
       catalog_name: service.name,
       description: line.description?.trim() || service.name,
       quantity: round2(quantity),
@@ -380,6 +386,7 @@ export async function loadCatalogServices(): Promise<CatalogService[]> {
     const mapped: CatalogService[] = rows
       .filter((r) => r.is_active !== false)
       .map((r) => ({
+        id: r.id != null ? String(r.id) : undefined,
         name: String(r.name ?? ""),
         description: String(r.description ?? ""),
         category: String(r.category ?? "general"),

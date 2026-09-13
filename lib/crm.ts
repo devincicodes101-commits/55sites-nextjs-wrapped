@@ -165,6 +165,7 @@ export async function createCrmQuote(input: CrmQuoteInput): Promise<string | nul
         isPhotoEnquiry || SENTINEL_NAMES.has(li.catalog_name ?? "")
           ? li.description
           : li.catalog_name || li.description,
+      ...(li.catalog_id ? { service_id: li.catalog_id } : {}),
       quantity: li.quantity,
       unit_price: li.unit_price_gbp,
       unit_type: li.unit,
@@ -198,27 +199,41 @@ export async function createCrmQuote(input: CrmQuoteInput): Promise<string | nul
       address: input.customerAddress,
     });
 
-    const res = await fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Quote`, {
-      method: "POST",
-      headers: crmHeaders(),
-      body: JSON.stringify({
-        // The CRM auto-numbers quotes made in its UI, but not via the API — set one.
-        quote_number: makeCrmQuoteNumber(),
-        client_type: input.clientType || "residential",
-        customer_id: customerId,
-        customer_name: customerName,
-        customer_email: input.customerEmail,
-        customer_address: input.customerAddress || "",
-        subtotal: input.quote.subtotal_gbp,
-        vat_rate: 20,
-        vat_amount: input.quote.vat_gbp,
-        total: input.quote.total_gbp,
-        status: "draft",
-        template_style: "modern",
-        sales_agent_name: input.salesAgentName || "AI Assistant",
-        items,
-      }),
-    });
+    const quoteNumber = makeCrmQuoteNumber();
+    const post = (lineItems: Array<Record<string, unknown>>) =>
+      fetch(`${ENTITIES_BASE}/apps/${appId}/entities/Quote`, {
+        method: "POST",
+        headers: crmHeaders(),
+        body: JSON.stringify({
+          // The CRM auto-numbers quotes made in its UI, but not via the API — set one.
+          quote_number: quoteNumber,
+          client_type: input.clientType || "residential",
+          customer_id: customerId,
+          customer_name: customerName,
+          customer_email: input.customerEmail,
+          customer_address: input.customerAddress || "",
+          subtotal: input.quote.subtotal_gbp,
+          vat_rate: 20,
+          vat_amount: input.quote.vat_gbp,
+          total: input.quote.total_gbp,
+          status: "draft",
+          template_style: "modern",
+          sales_agent_name: input.salesAgentName || "AI Assistant",
+          items: lineItems,
+        }),
+      });
+
+    let res = await post(items);
+
+    // service_id is new and only useful if the CRM's Quote item schema accepts it.
+    // If it doesn't, the whole quote would fail validation — so drop the field and
+    // retry once rather than lose the quote. Safe to remove when confirmed live.
+    const sentServiceId = items.some((li) => li.service_id);
+    if (!res.ok && sentServiceId) {
+      const detail = await res.text().catch(() => "");
+      console.warn("createCrmQuote rejected with service_id, retrying without:", res.status, detail);
+      res = await post(items.map(({ service_id: _drop, ...rest }) => rest));
+    }
 
     if (!res.ok) {
       console.error("createCrmQuote failed:", res.status, await res.text().catch(() => ""));
