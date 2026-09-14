@@ -338,6 +338,7 @@ export async function POST(request: Request) {
     // CRM sends the formal quote, keep the in-thread reply short; otherwise the
     // reply itself is the full quote document.
     let crmSent = false;
+    let crmQuoteId: string | null = null;
     if (isCrmConfigured()) {
       const r = await createAndSendCrmQuote({
         customerName: displayName,
@@ -349,6 +350,7 @@ export async function POST(request: Request) {
         salesAgentName: "AI Email Assistant",
       });
       crmSent = r.sent;
+      crmQuoteId = r.quoteId;
     }
 
     const replyText = crmSent
@@ -395,6 +397,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       action: "quote",
+      crmConfigured: isCrmConfigured(),
+      crmQuoteId,
+      crmSent,
       replySubject,
       replyText,
       replyHtml,
