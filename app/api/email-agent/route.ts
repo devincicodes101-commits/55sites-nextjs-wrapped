@@ -327,6 +327,30 @@ export async function POST(request: Request) {
       });
     }
 
+    // 3b) Priceable, but we don't know where the site is. The job cannot be
+    // scheduled and the contractor cannot be sent anywhere without an address,
+    // so ask for it before quoting rather than producing an unschedulable quote.
+    if (!intent.customer_address) {
+      const r = renderReply(
+        displayName,
+        [
+          `Thanks — I have everything I need to price this. Before I send the quotation, could you confirm:`,
+          `Reply with that and I'll send the quote straight over${callLine}.`,
+        ],
+        ["the first line of the site address and the postcode"],
+        businessName,
+      );
+      await saveLead("awaiting_info", `Awaiting: site address. Service: ${intent.identified_service}.`);
+      return NextResponse.json({
+        action: "ask",
+        replySubject,
+        replyText: r.text,
+        replyHtml: r.html,
+        isComplete: false,
+        notifyRep: false,
+      });
+    }
+
     // 4) Complete -> quote, save, and reply with it.
     const quote = assessment.quote;
     const quoteRef = makeQuoteRef(city);
