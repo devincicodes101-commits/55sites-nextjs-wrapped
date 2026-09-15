@@ -186,6 +186,7 @@ ASBESTOS DETECTED (set asbestos_detected — this is a SAFETY flag, and a wrong 
 - Set it FALSE only if the document positively states that no asbestos was found — e.g. every sample reads "No Asbestos Detected", NAD, or negative.
 - Set it NULL if you cannot tell, if the document is unreadable, or if it is not an asbestos document at all.
 - NEVER set it FALSE because you simply did not find a register or could not extract line items. Absence of extracted works is NOT evidence of absence of asbestos. If in any doubt, use NULL.
+- A REAL SURVEY IS MOSTLY NEGATIVE. Most rooms and most samples in a typical report read "No Asbestos Detected" / NAD / negative, and a handful do not. Seeing many negative entries tells you NOTHING on its own. Read every entry to the end of the document before deciding. asbestos_detected is FALSE only when EVERY entry is negative, and TRUE the moment a SINGLE entry records asbestos as detected, presumed or containing — however many negatives surround it.
 - asbestos_detected is independent of line_items: a survey can record asbestos that needs no removal (all "Manage"), which is TRUE with zero line_items.
 
 SURVEY TYPE (important — set survey_type and let it drive what you quote):
@@ -262,6 +263,60 @@ Rules:
 
   const draft = JSON.parse(text) as SurveyScopeDraft;
 
+  // "No asbestos" is the one answer that can get someone hurt, so it is not taken
+  // on trust. Two guards, both automatic.
+  let asbestosDetected: boolean | null = draft.asbestos_detected ?? null;
+
+  // Guard 1 — internal contradiction. If it listed ACMs it cannot also be clear.
+  if (asbestosDetected === false && Array.isArray(draft.identified_acms) && draft.identified_acms.length > 0) {
+    asbestosDetected = true;
+  }
+
+  // Guard 2 — independent second read of the document, asked the narrow question
+  // on its own. Only runs on the rare "no asbestos" path, so it costs almost
+  // nothing, and it catches a first pass that skimmed past a positive entry
+  // buried among negatives.
+  if (asbestosDetected === false) {
+    try {
+      const check = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: `Read this asbestos document and answer ONE question: does it record asbestos ANYWHERE?
+
+Most entries in a typical report say "No Asbestos Detected", NAD or negative. Those do not matter. You are looking for even a SINGLE entry that records asbestos as detected, presumed, or containing — in a register, a schedule of works, a material assessment record, or a certificate of bulk fibre analysis naming a fibre type (chrysotile, amosite, crocidolite, tremolite, actinolite, anthophyllite).
+
+Check every page to the end. Return ONLY JSON:
+{"any_asbestos": <true if ANY entry records asbestos, false if EVERY entry is negative, null if you cannot tell>,
+ "positive_entries": ["<each positive entry: location, material, fibre type>"]}`,
+              },
+              surveyPart,
+            ],
+          },
+        ],
+        config: { responseMimeType: "application/json", temperature: 0 },
+      });
+      const raw = check.text;
+      if (raw) {
+        const v = JSON.parse(raw) as { any_asbestos?: boolean | null; positive_entries?: unknown };
+        const positives = Array.isArray(v.positive_entries) ? v.positive_entries.length : 0;
+        // Only a clean, agreeing "false" survives. Anything else is not clear.
+        if (v.any_asbestos !== false || positives > 0) {
+          asbestosDetected = v.any_asbestos === true || positives > 0 ? true : null;
+        }
+      } else {
+        asbestosDetected = null;
+      }
+    } catch (err) {
+      // If the check cannot run we must not fall back to "no asbestos".
+      console.error("no-asbestos verification failed, treating as unconfirmed:", err);
+      asbestosDetected = null;
+    }
+  }
+
   // No line items is a legitimate outcome, not a failure. Two common cases:
   //  1. A survey with no asbestos (every sample "No Asbestos Detected").
   //  2. A MANAGEMENT survey where all items are "Manage in place" (nothing to remove).
@@ -285,7 +340,7 @@ Rules:
               ? "This management survey does not identify any asbestos requiring removal (materials are recommended to be managed in place)."
               : "The uploaded survey did not identify any asbestos-containing materials requiring removal."),
       ),
-      asbestos_detected: draft.asbestos_detected ?? null,
+      asbestos_detected: asbestosDetected,
       document_type: draft.document_type ?? null,
       out_of_scope_requests: outOfScope,
       survey_type: draft.survey_type ?? null,
@@ -425,7 +480,7 @@ Rules:
 
   return {
     survey_summary: naturalize(draft.survey_summary),
-    asbestos_detected: draft.asbestos_detected ?? null,
+    asbestos_detected: asbestosDetected,
     document_type: draft.document_type ?? null,
     out_of_scope_requests: outOfScope,
     survey_type: draft.survey_type ?? null,
