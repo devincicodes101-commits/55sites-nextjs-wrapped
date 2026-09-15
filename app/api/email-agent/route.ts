@@ -398,7 +398,7 @@ export async function POST(request: Request) {
           `Thanks — I have everything I need to price this. Before I send the quotation, could you confirm:`,
           `Reply with that and I'll send the quote straight over${callLine}.`,
         ],
-        ["the first line of the site address and the postcode"],
+        ["the site address, including the door or house number and the postcode"],
         businessName,
       );
       await saveLead("awaiting_info", `Awaiting: site address. Service: ${intent.identified_service}.`);
