@@ -231,6 +231,65 @@ export async function POST(request: Request) {
       }
     }
 
+    // What we can price automatically, in the customer's words — used when we
+    // have to say no, so the reply offers a way forward instead of a dead end.
+    const offeredList = catalog
+      .filter((c) => c.is_active !== false)
+      .map((c) => c.name)
+      .slice(0, 8)
+      .join(", ");
+
+    // 0a) Work we simply do not do. Say so plainly. The old behaviour promised a
+    // callback for jobs the company does not carry out, which either wastes a
+    // rep's time or leaves the customer waiting for a call that never comes.
+    if (intent && intent.enquiry_kind === "not_our_work") {
+      const what = intent.requested_service_text || "that";
+      const r = renderReply(
+        displayName,
+        [
+          `Thanks for getting in touch. ${what.charAt(0).toUpperCase()}${what.slice(1)} isn't something we carry out, I'm afraid. We're licensed asbestos removal specialists, so we only take on asbestos work.`,
+          `If any part of the job involves asbestos, we'd be glad to help. We can price things like: ${offeredList}.`,
+          `Just reply and let us know${callLine}.`,
+        ],
+        null,
+        businessName,
+      );
+      await saveLead("new", `Not our work: ${intent.summary || what}. Declined politely by the email agent.`);
+      return NextResponse.json({
+        action: "handoff",
+        replySubject,
+        replyText: r.text,
+        replyHtml: r.html,
+        isComplete: false,
+        notifyRep: false,
+      });
+    }
+
+    // 0b) Genuine asbestos work we do but cannot price automatically (surveys,
+    // testing, sampling). Confirm that we do it, then hand to a specialist.
+    if (intent && intent.enquiry_kind === "asbestos_other") {
+      const what = intent.requested_service_text || "that";
+      const r = renderReply(
+        displayName,
+        [
+          `Thanks for getting in touch. Yes, ${what} is something we can help with.`,
+          `It isn't something I can price instantly by email, so one of our asbestos specialists will be in touch shortly to go through the details with you${callLine}.`,
+        ],
+        null,
+        businessName,
+      );
+      await saveLead("new", `Asbestos work needing a specialist: ${intent.summary || what}.`);
+      return NextResponse.json({
+        action: "handoff",
+        replySubject,
+        replyText: r.text,
+        replyHtml: r.html,
+        isComplete: false,
+        notifyRep: true,
+        notifyText: `Specialist needed — ${fromEmail}. ${intent.summary || what}`,
+      });
+    }
+
     // 1) Couldn't parse, or clearly not a catalog service -> human handoff.
     if (!intent || intent.identified_service === "unknown") {
       const r = renderReply(
@@ -291,7 +350,9 @@ export async function POST(request: Request) {
         [
           // intent.summary is a third-person sentence ("The customer wants to
           // remove artex..."), so it cannot follow "your". Use the service name.
-          `Thanks for your enquiry about ${intent.identified_service || "asbestos removal"}. To finish your fixed-price quote, could you let me know:`,
+          intent.is_availability_question
+            ? `Thanks for getting in touch. Yes, ${intent.identified_service} is something we do, and I can give you a fixed price for it. To do that, could you let me know:`
+            : `Thanks for your enquiry about ${intent.identified_service || "asbestos removal"}. To finish your fixed-price quote, could you let me know:`,
           `Reply to this email with that and I'll send the quote straight over${callLine}.`,
         ],
         assessment.missing,

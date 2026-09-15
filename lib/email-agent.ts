@@ -17,6 +17,21 @@ export function isEmailAgentConfigured(): boolean {
 }
 
 export type EmailIntent = {
+  /** True when they are asking WHETHER we do something, rather than asking for a
+   *  price. A yes/no question deserves a yes/no answer before we start quoting. */
+  is_availability_question: boolean;
+  /**
+   * What kind of work this is, regardless of how it was asked:
+   *  - "catalog_service" we price it automatically
+   *  - "asbestos_other"  we do it, but a person prices it (survey, testing,
+   *                      sampling, air monitoring, encapsulation, demolition)
+   *  - "not_our_work"    nothing to do with asbestos (roofing repairs, glazing,
+   *                      general building) — say so plainly
+   *  - "unclear"         cannot tell from the thread
+   */
+  enquiry_kind: "catalog_service" | "asbestos_other" | "not_our_work" | "unclear";
+  /** What they asked about, in their own words — used when declining. */
+  requested_service_text: string;
   /** Exact catalog service name, or "ambiguous" or "unknown". */
   identified_service: string;
   /** When ambiguous: the single question to ask to resolve it. */
@@ -54,7 +69,9 @@ export async function extractEmailIntent(input: {
     "company's catalog they need, and how much (area, count, etc.). Be careful and precise. " +
     "If the request could match more than one catalog service (e.g. a garage roof could be " +
     "single or double), mark it ambiguous and give ONE clarifying question. If it clearly " +
-    "isn't any catalog service, mark it unknown.";
+    "isn't any catalog service, mark it unknown. You also judge whether the customer is " +
+    "ASKING WHETHER WE OFFER something (a yes/no question) rather than asking for a price, " +
+    "and what kind of work it is, so the reply can answer them honestly.";
 
   const user = `CATALOG SERVICES (choose "identified_service" EXACTLY from this list, or "ambiguous" / "unknown"):
 ${catalogList}
@@ -64,8 +81,26 @@ CUSTOMER EMAIL THREAD (most recent may be at the top or bottom — read all of i
 ${input.threadText.slice(0, 8000)}
 """
 
-Extract the customer's intent across the WHOLE thread (they may have added details in later replies). Return ONLY strict JSON:
+Extract the customer's intent across the WHOLE thread (they may have added details in later replies).
+
+A thread often starts with "do you do X?" and only later gives the details. Judge
+BOTH what kind of work it is and whether the latest message is asking whether we
+offer it.
+
+enquiry_kind must be one of:
+- "catalog_service" — it matches a catalog service above (set identified_service too)
+- "asbestos_other"  — genuine asbestos work we do but cannot auto-price: surveys,
+                      testing, sampling, air monitoring, encapsulation, asbestos
+                      demolition/strip-out
+- "not_our_work"    — nothing to do with asbestos: roofing repairs or re-roofing,
+                      glazing or windows, guttering, general building, plumbing
+- "unclear"         — you cannot tell from the thread
+
+Return ONLY strict JSON:
 {
+  "is_availability_question": <true if they are asking WHETHER we offer/do something, else false>,
+  "enquiry_kind": "<catalog_service | asbestos_other | not_our_work | unclear>",
+  "requested_service_text": "<what they asked about, in their own words, a few words only>",
   "identified_service": "<exact catalog name, or 'ambiguous', or 'unknown'>",
   "clarification_question": "<if ambiguous: one short question to resolve which service; else empty string>",
   "area_sqm": <number or null, if an area in m² is stated>,
@@ -111,7 +146,17 @@ Extract the customer's intent across the WHOLE thread (they may have added detai
         ? p.identified_service.trim()
         : "unknown";
 
+    const kind = typeof p.enquiry_kind === "string" ? p.enquiry_kind.trim() : "";
+    const enquiry_kind: EmailIntent["enquiry_kind"] =
+      kind === "catalog_service" || kind === "asbestos_other" || kind === "not_our_work"
+        ? kind
+        : "unclear";
+
     return {
+      is_availability_question: p.is_availability_question === true,
+      enquiry_kind,
+      requested_service_text:
+        typeof p.requested_service_text === "string" ? p.requested_service_text.trim() : "",
       identified_service: identified,
       clarification_question:
         typeof p.clarification_question === "string" ? p.clarification_question.trim() : "",
