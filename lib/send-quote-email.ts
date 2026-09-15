@@ -314,7 +314,7 @@ export function buildNoAsbestosEmailHtml(input: {
     <p style="margin:0 0 24px;color:#666">Your asbestos survey${input.propertyAddress ? ` — ${esc(input.propertyAddress)}` : ""}</p>
     <p>Dear ${esc(input.customerName)},</p>
     <p>Thanks for sending over the survey${forProperty}.</p>
-    <p>We have reviewed it and <strong>no asbestos-containing materials were identified or presumed</strong> in the areas surveyed. All samples returned negative results, so there are no removal works required and nothing for us to quote.</p>
+    <p>We have reviewed it. <strong>The survey records no asbestos-containing materials as identified or presumed</strong> in the areas it covers, so on the basis of that report there are no removal works for us to quote.</p>
     <p>One thing worth knowing: a Management Survey is non-intrusive by design, so it does not cover areas such as floor voids, wall cavities or the fabric of the building. If you are planning refurbishment or demolition work, a Refurbishment/Demolition Survey would be needed beforehand, as that covers areas a management survey cannot reach. We would be glad to quote for one.</p>
     <p>If you have another property or a different survey you would like priced, just reply to this email and we will take a look.</p>
     <p style="margin-top:24px">Prefer to talk it through? Call us on <strong>${esc(input.phoneDisplay)}</strong>.</p>
@@ -425,5 +425,63 @@ export async function sendLeadAlertEmail(input: {
   if (!res.ok) {
     return { sent: false, error: data.message || `Resend error ${res.status}` };
   }
+  return { sent: true };
+}
+
+
+/**
+ * Sent when a survey produced no priceable works but we cannot say there is no
+ * asbestos — the document records asbestos that needs no removal, or could not
+ * be read, or is only a lab certificate. Claiming "no asbestos" here would be
+ * unsafe, so this says nothing about the result and hands it to a human.
+ */
+export function buildUnderReviewEmailHtml(input: {
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  propertyAddress?: string;
+}): string {
+  const forProperty = input.propertyAddress
+    ? ` for <strong>${esc(input.propertyAddress)}</strong>`
+    : "";
+  return `
+  <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#222">
+    <h1 style="font-size:22px;margin:0 0 8px">${esc(input.businessName)}</h1>
+    <p style="margin:0 0 24px;color:#666">Your asbestos survey${input.propertyAddress ? ` — ${esc(input.propertyAddress)}` : ""}</p>
+    <p>Dear ${esc(input.customerName)},</p>
+    <p>Thanks for sending over the survey${forProperty}. We have received it safely.</p>
+    <p>One of our asbestos specialists is reviewing it now and will come back to you shortly with a quotation or with any questions.</p>
+    <p style="margin-top:24px">If it is urgent, call us on <strong>${esc(input.phoneDisplay)}</strong> and we will pick it up straight away.</p>
+    <p style="color:#888;font-size:12px;margin-top:32px">${esc(input.businessName)} — ${esc(input.city)}.</p>
+  </div>`;
+}
+
+export async function sendUnderReviewEmail(input: {
+  to: string;
+  customerName: string;
+  businessName: string;
+  city: string;
+  phoneDisplay: string;
+  propertyAddress?: string;
+}): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "Email not configured (RESEND_API_KEY / QUOTE_FROM_EMAIL)" };
+  }
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY!}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: process.env.QUOTE_FROM_EMAIL!,
+      to: [input.to],
+      subject: `${input.businessName} — we have your asbestos survey`,
+      html: buildUnderReviewEmailHtml(input),
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+  if (!res.ok) return { sent: false, error: data.message || `Resend error ${res.status}` };
   return { sent: true };
 }

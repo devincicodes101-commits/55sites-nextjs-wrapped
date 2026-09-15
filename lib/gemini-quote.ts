@@ -20,6 +20,9 @@ export type QuoteLineItem = {
 
 export type GeneratedQuote = {
   survey_summary: string;
+  /** true = the document records asbestos somewhere; false = it positively states
+   *  none; null = could not tell. NEVER treat null as "no asbestos". */
+  asbestos_detected?: boolean | null;
   /** "survey_report" | "photo_enquiry" | "other" — drives indicative vs firm pricing. */
   document_type?: string | null;
   /** Works the customer asked for that we don't offer (roofing, glazing, general build). */
@@ -42,6 +45,7 @@ export type GeneratedQuote = {
 /** Gemini extracts scope only — unit prices come from the Service Catalog in code. */
 type SurveyScopeDraft = {
   survey_summary: string;
+  asbestos_detected?: boolean | null;
   document_type?: string | null;
   out_of_scope_requests?: string[];
   survey_type: string | null;
@@ -65,6 +69,7 @@ const SCOPE_JSON_SCHEMA = {
   type: "object",
   properties: {
     survey_summary: { type: "string" },
+    asbestos_detected: { type: ["boolean", "null"] },
     document_type: { type: ["string", "null"] },
     out_of_scope_requests: { type: "array", items: { type: "string" } },
     survey_type: { type: ["string", "null"] },
@@ -92,6 +97,7 @@ const SCOPE_JSON_SCHEMA = {
   },
   required: [
     "survey_summary",
+    "asbestos_detected",
     "identified_acms",
     "recommended_works",
     "line_items",
@@ -167,6 +173,13 @@ PHOTO ENQUIRY RULES (apply ONLY when document_type is "photo_enquiry" — these 
 - identified_acms must be worded as "likely" / "consistent with", never as confirmed.
 - assumptions MUST state that asbestos presence is unconfirmed, that a survey with sample analysis is required before any works, and that the figures are indicative and not a firm quotation.
 
+ASBESTOS DETECTED (set asbestos_detected — this is a SAFETY flag, and a wrong answer can get someone hurt):
+- Set it TRUE if anywhere in the document a material or sample is recorded as containing, or presumed to contain, asbestos. That includes any certificate row naming a fibre type (chrysotile, amosite, crocidolite, tremolite, actinolite, anthophyllite), and any register entry whose action is "Manage" rather than "Remove".
+- Set it FALSE only if the document positively states that no asbestos was found — e.g. every sample reads "No Asbestos Detected", NAD, or negative.
+- Set it NULL if you cannot tell, if the document is unreadable, or if it is not an asbestos document at all.
+- NEVER set it FALSE because you simply did not find a register or could not extract line items. Absence of extracted works is NOT evidence of absence of asbestos. If in any doubt, use NULL.
+- asbestos_detected is independent of line_items: a survey can record asbestos that needs no removal (all "Manage"), which is TRUE with zero line_items.
+
 SURVEY TYPE (important — set survey_type and let it drive what you quote):
 - Set survey_type to one of: "management", "refurbishment_demolition", "reinspection", or "other".
 - A MANAGEMENT survey locates asbestos so it can be MANAGED IN PLACE. For a management survey, ONLY add a line_item for a material whose recommended Action is "Remove". Materials whose Action is "Manage" (leave in place / monitor) are NOT removal works — do NOT create line_items for them, and do NOT quote them for removal. If a management survey has no "Remove" items, return an empty line_items array.
@@ -181,7 +194,7 @@ Rules:
 - Double-check every quantity against the report before returning — a wrong quantity produces a wrong price.
 - description: short human-readable line referencing location/ACM from the report.
 - Do not invent works that are not supported by the report.
-- (survey_report only — never apply this to a photo_enquiry) IGNORE non-item pages: cover/title pages, contents, introduction, survey objectives/techniques, caveats, disclaimers, the material assessment algorithm, certificates of analysis, site plans, quality assurance, and standalone photo pages. Extract works ONLY from the actual ACM item entries and summary/register tables — the rows that have a Material Description, Location and Action. Skip "Negative"/"No Suspect Materials Found"/"No Asbestos Detected" entries.
+- (survey_report only — never apply this to a photo_enquiry) IGNORE non-item pages: cover/title pages, contents, introduction, survey objectives/techniques, caveats, disclaimers, the material assessment algorithm, site plans, quality assurance, and standalone photo pages. CERTIFICATES OF BULK FIBRE ANALYSIS are an appendix in a full survey, so prefer the register where one exists — BUT when the document you are given is ONLY a certificate of analysis, or has no register at all, you MUST read the certificate itself: every row naming a fibre type (chrysotile, amosite, crocidolite, tremolite, actinolite, anthophyllite) is asbestos found in that sample. Extract works ONLY from the actual ACM item entries and summary/register tables — the rows that have a Material Description, Location and Action. Skip "Negative"/"No Suspect Materials Found"/"No Asbestos Detected" entries.
 - Prefer the report's own quantity/units (m², number of sheets/units) and its Action column when deciding what to quote.
 - ONE physical element = ONE line_item (do NOT double-count). Surveys frequently record the SAME component twice from different viewpoints — most commonly a roof logged both internally ("above ceiling") AND externally ("external roof / all elevations"), or a partition wall recorded from each side. These are separate survey RECORDS but a single removal job. When two or more removal records clearly describe the same physical element — same material type and the same or near-identical area/quantity, in the same building — quote it ONCE, and note the merged record IDs in assumptions. Only merge when they are plainly the same element; keep genuinely separate items apart (e.g. two different rooms' ceilings).
 - If the report is unclear on quantity, state the assumption and use a conservative measurable estimate.
@@ -264,6 +277,7 @@ Rules:
               ? "This management survey does not identify any asbestos requiring removal (materials are recommended to be managed in place)."
               : "The uploaded survey did not identify any asbestos-containing materials requiring removal."),
       ),
+      asbestos_detected: draft.asbestos_detected ?? null,
       document_type: draft.document_type ?? null,
       out_of_scope_requests: outOfScope,
       survey_type: draft.survey_type ?? null,
@@ -403,6 +417,7 @@ Rules:
 
   return {
     survey_summary: naturalize(draft.survey_summary),
+    asbestos_detected: draft.asbestos_detected ?? null,
     document_type: draft.document_type ?? null,
     out_of_scope_requests: outOfScope,
     survey_type: draft.survey_type ?? null,

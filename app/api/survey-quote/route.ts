@@ -4,7 +4,12 @@ import { catalogToPricingHints, loadCatalogServices } from "@/lib/catalog-pricin
 import { generateQuoteFromSurvey, isGeminiConfigured } from "@/lib/gemini-quote";
 import { isSurveyQuotePilotEnabled } from "@/lib/pilot";
 import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
-import { isEmailConfigured, sendNoAsbestosEmail, sendQuoteEmail } from "@/lib/send-quote-email";
+import {
+  isEmailConfigured,
+  sendNoAsbestosEmail,
+  sendQuoteEmail,
+  sendUnderReviewEmail,
+} from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 
 export const runtime = "nodejs";
@@ -197,21 +202,38 @@ export async function POST(request: Request) {
     // diary + stored in Quotes, like a real rep); fall back to our own email.
     let emailSent = false;
     let noAsbestosEmailSent = false;
+    let needsHumanReview = false;
     let emailWarning: string | undefined;
     if (nothingToQuote) {
       // There is no quote to send, but silence is the wrong answer: the customer
-      // sent us a survey and is waiting to hear back. Tell them the good news and
-      // point at the one thing that would need a further survey.
-      const r = await sendNoAsbestosEmail({
-        to: email,
-        customerName,
-        businessName: brandName,
-        city: brandCity,
-        phoneDisplay: brandPhone,
-        propertyAddress: quote.property_address || undefined,
-      });
+      // sent us a survey and is waiting to hear back.
+      //
+      // WHICH reply depends on a safety question. Extracting no priceable works
+      // is NOT evidence that there is no asbestos — the survey may record ACMs to
+      // manage in place, or be a lab certificate, or simply not have parsed. Only
+      // tell a customer there is no asbestos when the document positively says so;
+      // getting that wrong could lead someone to disturb asbestos.
+      const canSayNoAsbestos = quote.asbestos_detected === false;
+      const r = canSayNoAsbestos
+        ? await sendNoAsbestosEmail({
+            to: email,
+            customerName,
+            businessName: brandName,
+            city: brandCity,
+            phoneDisplay: brandPhone,
+            propertyAddress: quote.property_address || undefined,
+          })
+        : await sendUnderReviewEmail({
+            to: email,
+            customerName,
+            businessName: brandName,
+            city: brandCity,
+            phoneDisplay: brandPhone,
+            propertyAddress: quote.property_address || undefined,
+          });
       noAsbestosEmailSent = r.sent;
       emailWarning = r.sent ? undefined : r.error;
+      needsHumanReview = !canSayNoAsbestos;
     } else if (isCrmConfigured()) {
       const r = await createAndSendCrmQuote({
         customerName,
@@ -261,7 +283,7 @@ export async function POST(request: Request) {
         survey_file_name: fileName,
         quote_emailed: emailSent,
         lead_source: isEmailIntake ? "email_survey_intake" : "survey_quote_pilot",
-        status: "quoted",
+        status: needsHumanReview ? "new" : "quoted",
       });
     } catch (err) {
       crmWarning = err instanceof Error ? err.message : "CRM lead save failed";
@@ -272,7 +294,9 @@ export async function POST(request: Request) {
       ok: true,
       quoteRef,
       totalGbp: quote.total_gbp,
-      noAsbestos: nothingToQuote,
+      noAsbestos: nothingToQuote && quote.asbestos_detected === false,
+      asbestosDetected: quote.asbestos_detected ?? null,
+      needsHumanReview,
       emailSent,
       noAsbestosEmailSent,
       emailWarning,
