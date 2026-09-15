@@ -162,6 +162,7 @@ ${pricingText}
 DOCUMENT TYPE (set document_type FIRST — it decides which rules apply):
 - "survey_report": a formal asbestos survey/report containing ACM item entries or a register (rows with Material Description, Location and Action). Every rule in this prompt applies as written.
 - "photo_enquiry": a customer enquiry made of photographs and/or written requests, with NO ACM register, no sample results and no Action column — e.g. "please quote to remove my garage roof" with pictures attached. Apply the PHOTO ENQUIRY RULES below.
+- "certificate_of_analysis": a laboratory certificate of bulk fibre analysis — a list of samples with the fibre type found in each (chrysotile, amosite, crocidolite) — with NO register, NO locations and NO extents. Apply the CERTIFICATE RULES below.
 - "other": anything else.
 
 PHOTO ENQUIRY RULES (apply ONLY when document_type is "photo_enquiry" — these never affect survey reports):
@@ -172,6 +173,13 @@ PHOTO ENQUIRY RULES (apply ONLY when document_type is "photo_enquiry" — these 
 - Any requested work that is NOT asbestos removal (roof repairs, re-roofing or roof replacement, glazing, window frames, general building work) goes in out_of_scope_requests. Do NOT create a line_item for it and do NOT price it.
 - identified_acms must be worded as "likely" / "consistent with", never as confirmed.
 - assumptions MUST state that asbestos presence is unconfirmed, that a survey with sample analysis is required before any works, and that the figures are indicative and not a firm quotation.
+
+CERTIFICATE RULES (apply ONLY when document_type is "certificate_of_analysis"):
+- A certificate proves which submitted SAMPLES contained asbestos. It does NOT say where the material is, how much of it there is, or what condition it is in.
+- Set asbestos_detected TRUE if any sample names a fibre type; FALSE only if every sample reads "No Asbestos Detected"/NAD/negative.
+- List every positive sample in identified_acms, with its sample reference, material description and fibre type.
+- line_items MUST be an empty array. There are no locations, areas, lengths or counts in a certificate, so there is NOTHING that can honestly be priced. Never invent a quantity of 1 to make a line quotable.
+- In assumptions, state that this is a laboratory certificate rather than a survey, and that the full survey report (or a site visit) is needed to establish the extent of the works before anything can be priced.
 
 ASBESTOS DETECTED (set asbestos_detected — this is a SAFETY flag, and a wrong answer can get someone hurt):
 - Set it TRUE if anywhere in the document a material or sample is recorded as containing, or presumed to contain, asbestos. That includes any certificate row naming a fibre type (chrysotile, amosite, crocidolite, tremolite, actinolite, anthophyllite), and any register entry whose action is "Manage" rather than "Remove".
