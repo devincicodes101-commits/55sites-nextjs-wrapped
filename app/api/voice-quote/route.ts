@@ -75,19 +75,33 @@ export async function POST(request: Request) {
 
   const { args, toolCallId } = unwrap(body);
 
-  const customerName = String(args.customerName || "").trim();
-  const customerEmail = String(args.customerEmail || "").trim();
-  const customerPhone = String(args.customerPhone || "").trim();
-  const siteAddress = String(args.siteAddress || "").trim();
-  const notes = String(args.notes || "").trim();
+  // Vapi sends whatever the tool schema declares, so tolerate snake_case too —
+  // a schema edited to site_address would otherwise silently drop the address.
+  const arg = (camel: string) => {
+    const snake = camel.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+    return String(args[camel] ?? args[snake] ?? "").trim();
+  };
+  const customerName = arg("customerName");
+  const customerEmail = arg("customerEmail");
+  const customerPhone = arg("customerPhone");
+  const siteAddress = arg("siteAddress");
+  const notes = arg("notes");
   const rawServices: VoiceService[] = Array.isArray(args.services) ? (args.services as VoiceService[]) : [];
 
   const hasEmail = Boolean(customerEmail && customerEmail.includes("@"));
 
+  // The team handle daytime enquiries themselves. Enforce that here rather than
+  // trusting the assistant to have called check_office_hours first — on a live
+  // 14:27 call it skipped that check and quoted anyway. Deciding it server-side
+  // means it cannot be skipped. Must come before the email guard below: a
+  // daytime callback is never emailed, so it must not demand an email address.
+  const { isOpen, clock } = officeState();
+  const officeHoursCallback = isOpen && rawServices.length > 0;
+  const quoting = rawServices.length > 0 && !officeHoursCallback;
+
   // A quote has to be emailed somewhere, so an address is required to price one.
-  // A callback lead is not emailed, so a phone number is enough — during office
-  // hours the agent takes only a name, a number and what they need.
-  if (rawServices.length > 0 && !hasEmail) {
+  // A callback lead is not emailed, so a phone number is enough.
+  if (quoting && !hasEmail) {
     return reply(toolCallId, "I need a valid email address before I can send the quotation.");
   }
   if (!hasEmail && !customerPhone) {
@@ -95,13 +109,6 @@ export async function POST(request: Request) {
   }
 
   const { firstName, lastName } = splitPersonName(customerName || "Phone enquiry");
-
-  // The team handle daytime enquiries themselves. Enforce that here rather than
-  // trusting the assistant to have called check_office_hours first — on a live
-  // call it skipped that check and quoted during office hours anyway. Deciding
-  // it server-side means it cannot be skipped.
-  const { isOpen, clock } = officeState();
-  const officeHoursCallback = isOpen && rawServices.length > 0;
 
   // No priceable service, or the office is open -> capture the lead instead.
   if (rawServices.length === 0 || officeHoursCallback) {
@@ -114,7 +121,7 @@ export async function POST(request: Request) {
         source: "AI Phone Agent",
         originCity: BRAND_CITY,
         originDomain: BRAND_DOMAIN,
-        notes: `CALLBACK REQUESTED — caller rang during office hours and was told the team would ring back. Phone: ${customerPhone || "not given"}. ${notes}`.trim(),
+        notes: `CALLBACK REQUESTED — ${officeHoursCallback ? `caller rang at ${clock} UK, during office hours, so no price was given` : "caller had no priceable service to quote"}. Told the team would ring back. Phone: ${customerPhone || "not given"}. ${notes}`.trim(),
         message: [notes, officeHoursCallback ? `Asked about: ${rawServices.map((s) => String(s.service || "")).filter(Boolean).join(", ")}` : ""]
           .filter(Boolean)
           .join(" | "),
