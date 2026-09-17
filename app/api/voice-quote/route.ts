@@ -8,6 +8,7 @@ import {
 import { loadCatalogServices } from "@/lib/catalog-pricing";
 import { createAndSendCrmQuote, createCrmLead, isCrmConfigured } from "@/lib/crm";
 import { assessEnquiryItems } from "@/lib/enquiry-quote";
+import { officeState } from "@/lib/office-hours";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -95,8 +96,15 @@ export async function POST(request: Request) {
 
   const { firstName, lastName } = splitPersonName(customerName || "Phone enquiry");
 
-  // No priceable service -> still capture the lead so nobody is lost.
-  if (rawServices.length === 0) {
+  // The team handle daytime enquiries themselves. Enforce that here rather than
+  // trusting the assistant to have called check_office_hours first — on a live
+  // call it skipped that check and quoted during office hours anyway. Deciding
+  // it server-side means it cannot be skipped.
+  const { isOpen, clock } = officeState();
+  const officeHoursCallback = isOpen && rawServices.length > 0;
+
+  // No priceable service, or the office is open -> capture the lead instead.
+  if (rawServices.length === 0 || officeHoursCallback) {
     if (isCrmConfigured()) {
       await createCrmLead({
         name: customerName || "Phone enquiry",
@@ -107,10 +115,17 @@ export async function POST(request: Request) {
         originCity: BRAND_CITY,
         originDomain: BRAND_DOMAIN,
         notes: `CALLBACK REQUESTED — caller rang during office hours and was told the team would ring back. Phone: ${customerPhone || "not given"}. ${notes}`.trim(),
-        message: notes,
+        message: [notes, officeHoursCallback ? `Asked about: ${rawServices.map((s) => String(s.service || "")).filter(Boolean).join(", ")}` : ""]
+          .filter(Boolean)
+          .join(" | "),
       });
     }
-    return reply(toolCallId, "Thanks, I've passed your details to the team and someone will call you back shortly.");
+    return reply(
+      toolCallId,
+      officeHoursCallback
+        ? `The office is open right now (${clock} UK time), so do NOT give a price. Tell the caller our team are in the office and someone will call them straight back shortly, then end the call politely.`
+        : "Thanks, I've passed your details to the team and someone will call you back shortly.",
+    );
   }
 
   try {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { officeState, OFFICE_HOURS_CONFIG } from "@/lib/office-hours";
 
 export const runtime = "nodejs";
 
@@ -11,37 +12,6 @@ export const runtime = "nodejs";
  *
  * Hours are Europe/London so BST is handled without us tracking the clock change.
  */
-const OPEN_HOUR = Number(process.env.OFFICE_OPEN_HOUR ?? 9); // 9am
-const CLOSE_HOUR = Number(process.env.OFFICE_CLOSE_HOUR ?? 17); // 5pm
-// Days the office is staffed at all. 0 = Sunday … 6 = Saturday.
-const OPEN_DAYS = (process.env.OFFICE_OPEN_DAYS ?? "1,2,3,4,5,6")
-  .split(",")
-  .map((d) => Number(d.trim()))
-  .filter((d) => Number.isFinite(d));
-
-function londonNow() {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/London",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return {
-    weekday: dayNames.indexOf(get("weekday")),
-    hour: Number(get("hour")),
-    clock: `${get("hour")}:${get("minute")}`,
-  };
-}
-
-function officeState() {
-  const { weekday, hour, clock } = londonNow();
-  const isOpen = OPEN_DAYS.includes(weekday) && hour >= OPEN_HOUR && hour < CLOSE_HOUR;
-  return { isOpen, clock, weekday };
-}
-
 /** Vapi reads `result` aloud to the model, so it must say what to DO. */
 function spokenResult(isOpen: boolean, clock: string) {
   return isOpen
@@ -58,9 +28,9 @@ function respond(toolCallId: string | null) {
   return NextResponse.json({
     isOpen,
     ukTime: clock,
-    openHour: OPEN_HOUR,
-    closeHour: CLOSE_HOUR,
-    openDays: OPEN_DAYS,
+    openHour: OFFICE_HOURS_CONFIG.OPEN_HOUR,
+    closeHour: OFFICE_HOURS_CONFIG.CLOSE_HOUR,
+    openDays: OFFICE_HOURS_CONFIG.OPEN_DAYS,
     message: spoken,
   });
 }
