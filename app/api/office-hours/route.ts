@@ -45,8 +45,8 @@ function officeState() {
 /** Vapi reads `result` aloud to the model, so it must say what to DO. */
 function spokenResult(isOpen: boolean, clock: string) {
   return isOpen
-    ? `OPEN. The office is staffed right now (${clock} UK time). Tell the caller you will put them straight through to the team, then use the transfer tool. Do not take their details and do not quote.`
-    : `CLOSED. The office is closed right now (${clock} UK time). Handle the call yourself: take their details and produce the quotation as normal. Do not offer to transfer them.`;
+    ? `OPEN. The team are in the office right now (${clock} UK time) and they handle daytime enquiries themselves. Do NOT quote and do NOT ask for measurements or the site address. Tell the caller the team are in and someone will call them straight back, take only their full name, phone number and a short description of the work, then call send_quote with those details and NO services so the lead is logged. Then end the call politely.`
+    : `CLOSED. The office is closed right now (${clock} UK time). Handle the call yourself: take their details and produce the quotation as normal.`;
 }
 
 function respond(toolCallId: string | null) {
