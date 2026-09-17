@@ -81,8 +81,16 @@ export async function POST(request: Request) {
   const notes = String(args.notes || "").trim();
   const rawServices: VoiceService[] = Array.isArray(args.services) ? (args.services as VoiceService[]) : [];
 
-  if (!customerEmail || !customerEmail.includes("@")) {
+  const hasEmail = Boolean(customerEmail && customerEmail.includes("@"));
+
+  // A quote has to be emailed somewhere, so an address is required to price one.
+  // A callback lead is not emailed, so a phone number is enough — during office
+  // hours the agent takes only a name, a number and what they need.
+  if (rawServices.length > 0 && !hasEmail) {
     return reply(toolCallId, "I need a valid email address before I can send the quotation.");
+  }
+  if (!hasEmail && !customerPhone) {
+    return reply(toolCallId, "I need either an email address or a phone number so the team can reach you.");
   }
 
   const { firstName, lastName } = splitPersonName(customerName || "Phone enquiry");
@@ -98,7 +106,7 @@ export async function POST(request: Request) {
         source: "AI Phone Agent",
         originCity: BRAND_CITY,
         originDomain: BRAND_DOMAIN,
-        notes: `Phone enquiry taken by the AI agent. ${notes}`.trim(),
+        notes: `CALLBACK REQUESTED — caller rang during office hours and was told the team would ring back. Phone: ${customerPhone || "not given"}. ${notes}`.trim(),
         message: notes,
       });
     }
