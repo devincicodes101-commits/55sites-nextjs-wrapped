@@ -184,7 +184,6 @@ export async function POST(request: Request) {
         done: false,
         lane: "survey",
         surveyLeadSent: leadSent,
-        _debug: { survey: turn.survey, modelReady: turn.survey_lead_ready, name: turn.customer_name, email: turn.customer_email },
         partner: GOGREEN_BRAND,
       });
     }
