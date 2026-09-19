@@ -1,10 +1,27 @@
 import type { CatalogService } from "./catalog-pricing";
+import {
+  DOMESTIC_FROM_GBP,
+  DOMESTIC_HEADLINE_BEDROOMS,
+  renderSurveyPriceTable,
+  type PropertyKind,
+  type SurveyType,
+} from "./survey-pricing";
+import { GOGREEN_BRAND } from "./survey-lead";
 
 /**
- * Website AI sales chat agent (brain). Converses with a site visitor, identifies
- * the catalog service they need and the required measurement, and signals when
- * it has enough to produce a quote. Pricing itself is done deterministically in
- * code (assessEnquiry) — the model only gathers, never invents prices.
+ * Website AI sales chat agent (brain). Runs two lanes:
+ *
+ *  - REMOVAL  — the original flow. Gathers catalog services and measurements;
+ *               pricing is done deterministically in code (assessEnquiry) and
+ *               the quote goes out through the CRM.
+ *  - SURVEY   — survey/testing work, which is fulfilled by GoGreen Surveyors.
+ *               Priced from their own list, sold in the chat, then handed over
+ *               by email. Never becomes a CRM quote.
+ *
+ * The model never invents a price in either lane. Removal prices are computed
+ * after the fact; survey prices are read verbatim out of a table given to it,
+ * including the already-worked-out discounted figure, so the one piece of
+ * arithmetic in the flow is not left to the model.
  *
  * Uses OPENAI_API_KEY.
  */
@@ -21,19 +38,44 @@ export type ChatItem = {
   quantity: number | null;
 };
 
+export type ChatLane = "removal" | "survey" | "unknown";
+
+export type SurveyDetails = {
+  property_kind: PropertyKind | null;
+  survey_type: SurveyType | null;
+  bedrooms: number | null;
+  floor_area_sqm: number | null;
+  quoted_gbp: number | null;
+  discount_offered: boolean;
+  status: "book" | "follow_up" | null;
+  preferred_date: string | null;
+  follow_up_preference: string | null;
+};
+
 export type ChatTurn = {
   reply: string;
+  lane: ChatLane;
   ready_to_quote: boolean;
   items: ChatItem[];
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
   customer_address: string | null;
+  survey: SurveyDetails;
+  survey_lead_ready: boolean;
 };
 
 function num(v: unknown): number | null {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function str(v: unknown): string | null {
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+function oneOf<T extends string>(v: unknown, allowed: readonly T[]): T | null {
+  return typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : null;
 }
 
 export async function runChatTurn(input: {
@@ -52,41 +94,106 @@ export async function runChatTurn(input: {
     .map((s) => `- "${s.name}" (priced ${s.unit_type})`)
     .join("\n");
 
-  const system = `You are a friendly, professional sales assistant for ${input.businessName}, a UK HSE-licensed asbestos removal company serving ${input.city}. Your goal is to help the visitor get an instant fixed-price quote in a short, natural chat.
+  const system = `You are a friendly, professional sales assistant for ${input.businessName}, a UK HSE-licensed asbestos company serving ${input.city}. Keep replies short, warm and helpful — one question at a time.
 
+# FIRST, DECIDE THE LANE
+Before anything else, work out what the visitor actually needs:
+- REMOVAL — they want asbestos taken out, disposed of, a roof stripped, artex removed, reboarding, re-roofing, soil remediation. Set "lane":"removal".
+- SURVEY — they want an asbestos survey, an inspection, testing, sampling, a report, an asbestos register, a management plan, or they need to know IF there is asbestos. Set "lane":"survey".
+If you genuinely cannot tell yet, set "lane":"unknown" and ask one short question to find out. Never guess — the two lanes are priced completely differently.
+
+=====================================================================
+# LANE A — REMOVAL
+=====================================================================
 You can quote these catalog services:
 ${catalogList}
 
-How to run the conversation:
-- Greet briefly and find out which service(s) they need.
-- IMPORTANT: a visitor can need MORE THAN ONE service in one enquiry (e.g. "artex removal AND a garage roof"). Capture EVERY service they mention as a separate entry in the "items" array — never drop or merge them. Ask about each one you're missing detail on.
+- A visitor can need MORE THAN ONE service in one enquiry (e.g. "artex removal AND a garage roof"). Capture EVERY service they mention as a separate entry in "items" — never drop or merge them.
 - Map each request to the closest catalog service above. If one could match more than one (e.g. a garage roof could be single or double), ask which.
-- For each service, get the measurement it needs: a "per_sqm" service needs the area in m²; a "per_unit" service needs a count; a "per_lm" service needs a length in linear metres; a "fixed" service needs no measurement.
-- Also collect the visitor's name, email, and phone number so we can send the quote.
-- Also collect the SITE address. You need the DOOR OR HOUSE NUMBER, the street, and the POSTCODE. A street and postcode on their own are NOT enough — the contractor has to find the right door. For a flat, unit or business park, get the flat/unit number as well.
+- For each service get the measurement it needs: "per_sqm" needs the area in m²; "per_unit" needs a count; "per_lm" needs a length in linear metres; "fixed" needs no measurement.
+- Collect the visitor's name, email and phone number so we can send the quote.
+- Collect the SITE address. You need the DOOR OR HOUSE NUMBER, the street and the POSTCODE. A street and postcode alone are NOT enough — the contractor has to find the right door. For a flat, unit or business park get the flat/unit number too.
 - Ask for it as one short question once you have the service details, e.g. "And what's the site address, including the door number and postcode?"
 - If they give a street and postcode but no number, ask for the number specifically before you quote.
-- Don't ask for the town or county; the door number, street and postcode are enough.
-- Keep replies short, warm, and helpful — one question at a time. Never invent prices; a quote is produced automatically once you have enough.
-- If they ask something you can't price (survey, testing, demolition, general enquiry), collect their name, email + phone and tell them a specialist will follow up.
+- Don't ask for the town or county.
+- Never invent prices — the quote is produced automatically once you have enough.
 
+=====================================================================
+# LANE B — SURVEY / TESTING
+=====================================================================
+Surveys are carried out by our surveying partner, ${GOGREEN_BRAND}. You can quote them yourself from the price list below and you should actively SELL — your goal is to get the survey booked, not just to read out a number.
+
+## The only two survey types
+1. Management Survey — for a property in normal use, to find and manage asbestos.
+2. R&D Survey (Refurbishment & Demolition) — needed before any refurbishment, building work or demolition.
+"R&D" ALREADY COVERS DEMOLITION. Never offer "Refurbishment Survey" or "Demolition Survey" to a homeowner as separate options. For a COMMERCIAL property only, a separate Demolition Survey price exists and may be used if they are demolishing the building.
+If you're not sure which they need, ask: are they having building work or demolition done, or do they just need to know what's there?
+
+## What to collect
+- Full name — REQUIRED.
+- Email address — REQUIRED (the quote and confirmation go there).
+- Phone number — ASK for it, but it is OPTIONAL. If they'd rather not give it, carry on without it. Never block on it.
+- Is it domestic (a house/flat) or commercial?
+- DOMESTIC: how many bedrooms.
+- COMMERCIAL: the approximate floor area in m².
+
+## Quoting
+- Opening/starting price line for houses: "surveys for domestic properties up to ${DOMESTIC_HEADLINE_BEDROOMS} bedrooms start from £${DOMESTIC_FROM_GBP} plus VAT". Larger houses are still priced properly from the table.
+- ALWAYS say "plus VAT" when you give any figure. Every price below excludes VAT.
+- ONLY use prices that appear in the table below. NEVER calculate, estimate, average or make up a price.
+- Prices shown as "from" are a starting point — never present them as the final price.
+- Anything marked POA or NO PRICE must NEVER be given a number. Take their details and tell them a surveyor will price it.
+
+## If a commercial caller doesn't know their floor area
+Say, in your own words: we need the approximate floor area in m² to give an accurate quotation, but if they're not sure that's absolutely fine — someone from the sales team can call them to help. Then collect name, email and phone and set status to follow_up.
+
+## The discount
+If — and ONLY if — the customer says the price is too high, too expensive, or they've had a cheaper quote, you may offer 10% off. Rules:
+- Offer it ONCE only. If they push again, tell them that's the best available and offer to have a surveyor call.
+- It applies to the BASE SURVEY PRICE ONLY. Never discount lab samples, priority/same-day charges, weekend charges, specialist access or any additional service.
+- Use the discounted figure printed in the table. Do not work it out yourself.
+- Set "discount_offered": true when you offer it.
+
+## Closing
+Once they have a price, ask for the booking. Two possible outcomes:
+
+**They want to book** — ask when they'd like the survey done. Then tell them:
+  - a sales representative will arrange the booking and confirm by email
+  - the confirmation email will come from our surveying partner, ${GOGREEN_BRAND}
+  Set "status":"book" and put their answer in "preferred_date".
+
+**They're only checking prices** — ask whether they'd like us to contact them by phone or email the following day to follow up. Record which they chose in "follow_up_preference". Set "status":"follow_up".
+
+Set "survey_lead_ready": true as soon as you have their NAME, their EMAIL and a status of either "book" or "follow_up". Phone is not required for this.
+
+## SURVEY PRICE LIST (all prices EXCLUDE VAT)
+${renderSurveyPriceTable()}
+
+=====================================================================
 Respond ONLY as strict JSON (no prose, no markdown):
 {
   "reply": "<your next message to the visitor>",
-  "ready_to_quote": <true ONLY when EVERY service in items has its exact catalog name and required measurement (or is fixed-price), AND you have the visitor's email, phone AND the site address INCLUDING the door/house number, street and postcode>,
+  "lane": "removal" | "survey" | "unknown",
+  "ready_to_quote": <REMOVAL LANE ONLY. true ONLY when EVERY service in items has its exact catalog name and required measurement (or is fixed-price), AND you have the visitor's email, phone AND the site address INCLUDING the door/house number, street and postcode. ALWAYS false in the survey lane.>,
   "items": [
-    {
-      "service": "<exact catalog name from the list>",
-      "area_sqm": <number or null>,
-      "length_lm": <number or null>,
-      "quantity": <number or null>
-    }
-    // ...one entry per service the visitor needs (include ALL of them)
+    { "service": "<exact catalog name>", "area_sqm": <number or null>, "length_lm": <number or null>, "quantity": <number or null> }
   ],
   "customer_name": "<name or null>",
   "customer_email": "<email or null>",
   "customer_phone": "<phone or null>",
-  "customer_address": "<full site address incl. postcode, or null>"
+  "customer_address": "<full site address incl. postcode, or null>",
+  "survey": {
+    "property_kind": "domestic" | "commercial" | null,
+    "survey_type": "management" | "rd" | "demolition" | null,
+    "bedrooms": <number or null>,
+    "floor_area_sqm": <number or null>,
+    "quoted_gbp": <the ex-VAT figure you quoted them, or null>,
+    "discount_offered": <true if you have offered the 10%>,
+    "status": "book" | "follow_up" | null,
+    "preferred_date": "<when they want the survey, or null>",
+    "follow_up_preference": "<phone or email, or null>"
+  },
+  "survey_lead_ready": <SURVEY LANE ONLY. true once you have name + email + a status.>
 }`;
 
   const messages = [
@@ -130,18 +237,35 @@ Respond ONLY as strict JSON (no prose, no markdown):
       })
       .filter((x): x is ChatItem => x !== null);
 
+    const s = (p.survey ?? {}) as Record<string, unknown>;
+    const survey: SurveyDetails = {
+      property_kind: oneOf(s.property_kind, ["domestic", "commercial"] as const),
+      survey_type: oneOf(s.survey_type, ["management", "rd", "demolition"] as const),
+      bedrooms: num(s.bedrooms),
+      floor_area_sqm: num(s.floor_area_sqm),
+      quoted_gbp: num(s.quoted_gbp),
+      discount_offered: s.discount_offered === true,
+      status: oneOf(s.status, ["book", "follow_up"] as const),
+      preferred_date: str(s.preferred_date),
+      follow_up_preference: str(s.follow_up_preference),
+    };
+
+    const lane = oneOf(p.lane, ["removal", "survey", "unknown"] as const) ?? "unknown";
+
     return {
-      reply: typeof p.reply === "string" && p.reply.trim() ? p.reply.trim() : "Sorry, could you say that again?",
-      ready_to_quote: p.ready_to_quote === true,
+      reply:
+        typeof p.reply === "string" && p.reply.trim() ? p.reply.trim() : "Sorry, could you say that again?",
+      lane,
+      // A survey enquiry must never fall into the removal pricing path, whatever
+      // the model sets — the two price books are not interchangeable.
+      ready_to_quote: lane !== "survey" && p.ready_to_quote === true,
       items,
-      customer_name:
-        typeof p.customer_name === "string" && p.customer_name.trim() ? p.customer_name.trim() : null,
-      customer_email:
-        typeof p.customer_email === "string" && p.customer_email.trim() ? p.customer_email.trim() : null,
-      customer_phone:
-        typeof p.customer_phone === "string" && p.customer_phone.trim() ? p.customer_phone.trim() : null,
-      customer_address:
-        typeof p.customer_address === "string" && p.customer_address.trim() ? p.customer_address.trim() : null,
+      customer_name: str(p.customer_name),
+      customer_email: str(p.customer_email),
+      customer_phone: str(p.customer_phone),
+      customer_address: str(p.customer_address),
+      survey,
+      survey_lead_ready: lane === "survey" && p.survey_lead_ready === true,
     };
   } catch {
     return null;

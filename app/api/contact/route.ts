@@ -9,6 +9,7 @@ import { createCrmLead, isCrmConfigured } from "@/lib/crm";
 import { isEmailConfigured, sendLeadAlertEmail } from "@/lib/send-quote-email";
 import { getSiteConfig } from "@/lib/sites/registry";
 import { getSupabaseClient } from "@/lib/supabase";
+import { isSurveyService, sendSurveyFormLead } from "@/lib/survey-lead";
 
 const CRM_TIMEOUT_MS = 12_000;
 
@@ -65,6 +66,33 @@ export async function POST(request: Request) {
 
   if (!first_name) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  }
+
+  // Survey/testing work is fulfilled by GoGreen Surveyors. Those leads leave
+  // here by email and go no further into our systems — no CRM lead, no quote.
+  // Removal carries on down the existing path untouched.
+  if (isSurveyService(serviceValue)) {
+    const fullName = [first_name, last_name].filter(Boolean).join(" ").trim() || first_name;
+    const handover = await sendSurveyFormLead({
+      customerName: fullName,
+      customerEmail: emailValue,
+      customerPhone: phoneValue,
+      service: serviceValue,
+      message: detailsValue,
+      city,
+      domain,
+    });
+    if (!handover.sent) {
+      console.error("survey form handover failed:", handover.error);
+      return NextResponse.json(
+        {
+          error: "Failed to save submission",
+          detail: process.env.NODE_ENV === "development" ? handover.error : undefined,
+        },
+        { status: 500 },
+      );
+    }
+    return NextResponse.json({ ok: true, routedTo: "survey_partner" });
   }
 
   const useBase44 = isBase44Configured();
