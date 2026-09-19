@@ -144,8 +144,14 @@ export async function POST(request: Request) {
       // The model sets survey_lead_ready, but the same facts are already in the
       // extracted fields — so derive it here too rather than lose a lead to a
       // flag the model forgot to flip.
+      //
+      // A booking waits for the date. Handing over the instant a name appears
+      // told the partner "customer wants to book" while the customer was still
+      // deciding — and one then changed their mind a turn later, after the email
+      // had gone. The prompt guarantees a date value, so this cannot stall.
+      const hasSettledBooking = turn.survey.status === "book" && Boolean(turn.survey.preferred_date);
       const readyToHandOver =
-        Boolean(turn.customer_email) && (turn.survey_lead_ready || turn.survey.status !== null);
+        Boolean(turn.customer_email) && (hasSettledBooking || turn.survey.status === "follow_up");
 
       if (readyToHandOver && turn.customer_email && !surveyLeadAlreadySent) {
         const { summary, mismatch } = summariseSurveyQuote(turn.survey);
