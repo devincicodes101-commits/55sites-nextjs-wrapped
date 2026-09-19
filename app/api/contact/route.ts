@@ -7,7 +7,7 @@ import {
 } from "@/lib/base44";
 import { createCrmLead, isCrmConfigured } from "@/lib/crm";
 import { isEmailConfigured, sendLeadAlertEmail } from "@/lib/send-quote-email";
-import { getSiteConfig } from "@/lib/sites/registry";
+import { getRequestOriginDomain, getSiteConfig } from "@/lib/sites/registry";
 import { getSupabaseClient } from "@/lib/supabase";
 import { isSurveyService, sendSurveyFormLead } from "@/lib/survey-lead";
 
@@ -80,7 +80,9 @@ export async function POST(request: Request) {
       service: serviceValue,
       message: detailsValue,
       city,
-      domain,
+      // The true calling site, so an embedded page we hold no config for is
+      // still attributed correctly. Removal below keeps using `domain`.
+      domain: getRequestOriginDomain() || domain,
     });
     if (!handover.sent) {
       console.error("survey form handover failed:", handover.error);

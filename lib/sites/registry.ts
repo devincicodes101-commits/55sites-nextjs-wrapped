@@ -167,6 +167,26 @@ function resolveBaseConfig(): SiteConfig {
   return DEFAULT_CONFIG;
 }
 
+/**
+ * The domain the request actually came from, registered or not.
+ *
+ * Brand/theme still falls back to a default for an unknown site, but the LEAD
+ * must never be attributed to the wrong website — GoGreen are relying on that
+ * field to track which site produced the enquiry. A DomainCraft site we have no
+ * config for should report itself, not whichever default it landed on.
+ */
+export function getRequestOriginDomain(): string | null {
+  const h = headers();
+  for (const header of ["origin", "referer"]) {
+    const raw = h.get(header);
+    if (!raw) continue;
+    const host = normalizeHost(raw.replace(/^https?:\/\//, "").split("/")[0]);
+    if (host && !host.startsWith("localhost") && !host.endsWith(".vercel.app")) return host;
+  }
+  const host = normalizeHost(h.get("host") ?? "");
+  return host && !host.startsWith("localhost") && !host.endsWith(".vercel.app") ? host : null;
+}
+
 export function getSiteConfig(): SiteConfig {
   const base = resolveBaseConfig();
   const catalogPricing = catalogToPriceItems();

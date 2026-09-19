@@ -10,7 +10,7 @@ import { isChatConfigured, runChatTurn, type ChatMessage } from "@/lib/chat-agen
 import { createAndSendCrmQuote, isCrmConfigured } from "@/lib/crm";
 import { assessEnquiryItems } from "@/lib/enquiry-quote";
 import { sendBrandedQuoteEmail } from "@/lib/send-quote-email";
-import { getSiteConfig } from "@/lib/sites/registry";
+import { getRequestOriginDomain, getSiteConfig } from "@/lib/sites/registry";
 import { GOGREEN_BRAND, sendSurveyChatLead } from "@/lib/survey-lead";
 import { priceSurvey, SURVEY_TYPE_LABELS } from "@/lib/survey-pricing";
 import type { ChatTurn } from "@/lib/chat-agent";
@@ -128,6 +128,12 @@ export async function POST(request: Request) {
   // flag and sends it back.
   const surveyLeadAlreadySent = body.surveyLeadSent === true;
 
+  // Reported to GoGreen as the source website. Deliberately separate from
+  // brandDomain: the removal lane's behaviour must not change, and an embedded
+  // site we hold no config for still has to be named correctly on the lead.
+  const surveySourceDomain =
+    String(body.brandDomain || "").trim() || getRequestOriginDomain() || site.domain;
+
   try {
     const catalog = await loadCatalogServices();
     const turn = await runChatTurn({
@@ -205,7 +211,7 @@ export async function POST(request: Request) {
             summary ?? (stage === "capture" ? "No price given — see transcript for what they asked for" : null),
           transcript,
           city: brandCity,
-          domain: brandDomain,
+          domain: surveySourceDomain,
         });
         leadSent = r.sent;
         if (r.sent) sentStage = stage;
