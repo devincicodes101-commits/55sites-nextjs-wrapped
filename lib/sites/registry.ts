@@ -64,6 +64,9 @@ import york from "./york";
 // its real domain to the import. Nothing else in the app needs to change.
 const registry: Record<string, SiteConfig> = {
   "asbestosteams.co.uk": asbestosteams,
+  // The brand trades from asbestosukteams.co.uk now; the old domain is kept
+  // mapped so anything still pointing at it keeps resolving.
+  "asbestosukteams.co.uk": asbestosteams,
   "bathasbestosabatement.co.uk": bath,
   "birminghamasbestosabatement.co.uk": birmingham,
   "bradfordasbestosabatement.co.uk": bradford,
@@ -141,9 +144,31 @@ export function resolveSiteByRecipient(recipient: string): SiteConfig | null {
   return registry[normalizeHost(domain.trim())] ?? null;
 }
 
+/**
+ * Which site are we serving? Normally the host tells us. But the Base44 sites
+ * embed our widgets and call these APIs cross-origin, so the request arrives on
+ * OUR host, which is not a registered domain — every one of them was falling
+ * back to the default config and introducing itself with the wrong brand and
+ * city. The Origin (or Referer) names the real site, so use it when the host
+ * isn't one we know. Page renders on a registered domain still resolve by host.
+ */
+function resolveBaseConfig(): SiteConfig {
+  const h = headers();
+  const byHost = registry[normalizeHost(h.get("host") ?? "")];
+  if (byHost) return byHost;
+
+  for (const header of ["origin", "referer"]) {
+    const raw = h.get(header);
+    if (!raw) continue;
+    const host = raw.replace(/^https?:\/\//, "").split("/")[0];
+    const match = registry[normalizeHost(host)];
+    if (match) return match;
+  }
+  return DEFAULT_CONFIG;
+}
+
 export function getSiteConfig(): SiteConfig {
-  const host = headers().get("host") ?? "";
-  const base = registry[normalizeHost(host)] ?? DEFAULT_CONFIG;
+  const base = resolveBaseConfig();
   const catalogPricing = catalogToPriceItems();
 
   // Inject the shared Service Catalog into Transparent Pricing pages

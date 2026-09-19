@@ -17,7 +17,7 @@ const config: SiteConfig = {
   phoneDisplay: "0800 041 8212",
   phoneHref: "tel:08000418212",
   email: "sales@asbestosteams.co.uk",
-  domain: "asbestosteams.co.uk",
+  domain: "asbestosukteams.co.uk",
 
   hero: {
     ...london.hero,
