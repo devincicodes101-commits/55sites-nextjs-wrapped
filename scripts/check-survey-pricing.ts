@@ -50,6 +50,10 @@ eq("3000 -> 2700", applyDiscount(3000), 2700);
 
 console.log("--- SERVICE LANE CLASSIFIER ---");
 for (const t of ["Asbestos Surveys","Asbestos Testing","Air Testing & Monitoring"]) eq(`survey: ${t}`, isSurveyService(t), true);
+// "Free survey" CTAs are the pre-removal site visit, NOT paid GoGreen work.
+for (const t of ["Free Survey","Free Site Survey","Get Survey Quote","Book a free survey","Request a survey"]) eq(`free-survey CTA stays removal: ${t}`, isSurveyService(t), false);
+for (const t of ["Background & static air monitoring"]) eq(`survey: ${t}`, isSurveyService(t), true);
+for (const t of ["Domestic Garage Demolition","Cement garage demolition & disposal","Corrugated cement sheet removal","Excavation & removal of ACM soil","Floor tiles & adhesive removal","Flat asbestos garage roof removal","Cement roof removal & full re-roof","EMERGENCY RESPONSE"]) eq(`removal: ${t}`, isSurveyService(t), false);
 for (const t of ["Licensed Removal","Non-Licensed Removal","Garage Roof Removal & Dismantle","Asbestos Disposal","Muck Away","Re-Roofing Services","Reboard & Plastering","Soil Remediation & Testing","Demolition Services","Transparent Pricing","Emergency Response","General Enquiry"]) eq(`removal: ${t}`, isSurveyService(t), false);
 
 console.log("\n--- PRICE TABLE AS THE MODEL SEES IT ---\n" + renderSurveyPriceTable());

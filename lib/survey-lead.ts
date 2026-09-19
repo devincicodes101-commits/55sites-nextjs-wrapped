@@ -60,6 +60,13 @@ const SURVEY_TITLE_PATTERNS = [
  * by the word "testing".
  */
 const REMOVAL_TITLE_PATTERNS = [
+  // A "free survey" is the free pre-removal site visit our own team makes, not a
+  // paid GoGreen survey — GoGreen's surveys all cost money. Routing these to the
+  // partner would hand away removal jobs the client wants to win themselves.
+  /\bfree\b[^.]*\bsurvey\b/i,
+  /\bsurvey\b[^.]*\bfree\b/i,
+  // Call-to-action button labels, not services the visitor chose.
+  /^\s*(get|book|request|claim)\b[^.]*\b(quote|survey|visit|callback)\s*$/i,
   /removal/i,
   /re-?roofing/i,
   /reboard/i,
