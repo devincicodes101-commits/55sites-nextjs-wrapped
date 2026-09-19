@@ -189,6 +189,7 @@ Once they have a price, ask for the booking. Two possible outcomes:
   If they then change their mind and say they aren't ready to book after all, switch "status" to "follow_up".
 
 **They're only checking prices** — ask whether they'd like us to contact them by phone or email the following day to follow up. Record which they chose in "follow_up_preference". Set "status":"follow_up".
+  Put their actual answer in "follow_up_preference" — "phone" or "email". If they don't mind or won't say, put "either". Never leave it null once they have agreed to a follow-up, and don't ask the same question twice once they have answered it.
 
 Set "survey_lead_ready": true as soon as you have their NAME, their EMAIL and a status of either "book" or "follow_up". Phone is not required for this.
 

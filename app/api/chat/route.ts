@@ -168,10 +168,15 @@ export async function POST(request: Request) {
       // had gone. The prompt guarantees a date value, so this cannot stall.
       const hasSettledBooking = turn.survey.status === "book" && Boolean(turn.survey.preferred_date);
 
+      // The client asked for the follow-up preference to be recorded, so wait for
+      // it the same way a booking waits for its date — otherwise the lead goes out
+      // saying "not given" one turn before the customer actually answers.
+      const hasSettledFollowUp =
+        turn.survey.status === "follow_up" && Boolean(turn.survey.follow_up_preference);
+
       // A specialist case has nothing left to settle — no price to agree, no date
-      // to pick — so an email address is the whole requirement.
-      const settled =
-        hasSettledBooking || turn.survey.status === "follow_up" || turn.survey.needs_specialist;
+      // to pick, nothing to prefer — so an email address is the whole requirement.
+      const settled = hasSettledBooking || hasSettledFollowUp || turn.survey.needs_specialist;
 
       // Safety net. Survey work that is neither Management nor R&D (air testing,
       // a register update) never gets survey_type set, and the assistant does not
