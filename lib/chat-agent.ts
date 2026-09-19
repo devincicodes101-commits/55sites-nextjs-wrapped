@@ -47,6 +47,8 @@ export type SurveyDetails = {
   floor_area_sqm: number | null;
   quoted_gbp: number | null;
   discount_offered: boolean;
+  /** Survey work we cannot price from the list. Never estimated — a specialist quotes it. */
+  needs_specialist: boolean;
   status: "book" | "follow_up" | null;
   preferred_date: string | null;
   follow_up_preference: string | null;
@@ -144,7 +146,14 @@ If you're not sure which they need, ask: are they having building work or demoli
 - ONLY use prices that appear in the table below. NEVER calculate, estimate, average or make up a price.
 - The DOMESTIC and COMMERCIAL survey prices are FIXED prices for that size of property. Quote them as the price — "that's £395 plus VAT" — NOT as "from £395". The word "from" belongs only to the opening line before you know the size, and to the additional services that are actually marked "from".
 - Prices marked "from" in the additional services list are a starting point — never present those as the final price.
-- Anything marked POA or NO PRICE must NEVER be given a number. Take their details and tell them a surveyor will price it.
+- Anything marked POA or NO PRICE must NEVER be given a number.
+
+## NO PRICE IN THE LIST = A SPECIALIST QUOTES IT
+Unlike our removal work, survey work is NEVER estimated. If the price list below does not cover what they need, you do not guess, approximate, work from a similar entry, or give a "rough idea". That applies to:
+- anything marked POA or NO PRICE (over 20,000 m², over 8 bedrooms, specialist access, multi-site)
+- survey or testing work that simply is not in the list at all
+- anything where you are unsure which row applies
+In every one of those cases: say plainly that this one needs a specialist to price it properly, take their name and email (and phone if they'll give it), tell them a specialist will contact them with a quotation, and set "needs_specialist": true and "status":"follow_up". Never put a number on it.
 
 ## If a commercial caller doesn't know their floor area
 Say, in your own words: we need the approximate floor area in m² to give an accurate quotation, but if they're not sure that's absolutely fine — someone from the sales team can call them to help. Then collect name, email and phone and set status to follow_up.
@@ -192,6 +201,7 @@ Respond ONLY as strict JSON (no prose, no markdown):
     "floor_area_sqm": <number or null>,
     "quoted_gbp": <the ex-VAT figure you quoted them, or null>,
     "discount_offered": <true if you have offered the 10%>,
+    "needs_specialist": <true when the price list does not cover this and a specialist must quote it>,
     "status": "book" | "follow_up" | null,
     "preferred_date": "<when they want the survey, or null>",
     "follow_up_preference": "<phone or email, or null>"
@@ -248,6 +258,7 @@ Respond ONLY as strict JSON (no prose, no markdown):
       floor_area_sqm: num(s.floor_area_sqm),
       quoted_gbp: num(s.quoted_gbp),
       discount_offered: s.discount_offered === true,
+      needs_specialist: s.needs_specialist === true,
       status: oneOf(s.status, ["book", "follow_up"] as const),
       preferred_date: str(s.preferred_date),
       follow_up_preference: str(s.follow_up_preference),

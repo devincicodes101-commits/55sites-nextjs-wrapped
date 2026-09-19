@@ -32,6 +32,11 @@ function summariseSurveyQuote(survey: ChatTurn["survey"]): {
   summary: string | null;
   mismatch: string | null;
 } {
+  // Survey work is never estimated — if it isn't in the list a specialist prices
+  // it, and the rep needs to see that before anything else in the email.
+  if (survey.needs_specialist) {
+    return { summary: "SPECIALIST QUOTE REQUIRED — not covered by the price list, no price given", mismatch: null };
+  }
   if (!survey.property_kind || !survey.survey_type) return { summary: null, mismatch: null };
 
   const priced = priceSurvey({
@@ -41,7 +46,12 @@ function summariseSurveyQuote(survey: ChatTurn["survey"]): {
     sqm: survey.floor_area_sqm,
   });
 
-  if (priced.kind === "poa") return { summary: `${priced.label} — price on application`, mismatch: null };
+  if (priced.kind === "poa") {
+    return {
+      summary: `SPECIALIST QUOTE REQUIRED — ${priced.label}, price on application. ${priced.reason}`,
+      mismatch: null,
+    };
+  }
   if (priced.kind === "needs_size") {
     return { summary: `${SURVEY_TYPE_LABELS[survey.survey_type]} — size not confirmed`, mismatch: null };
   }
