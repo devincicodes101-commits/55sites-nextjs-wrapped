@@ -160,8 +160,13 @@ export async function POST(request: Request) {
       // deciding — and one then changed their mind a turn later, after the email
       // had gone. The prompt guarantees a date value, so this cannot stall.
       const hasSettledBooking = turn.survey.status === "book" && Boolean(turn.survey.preferred_date);
+      // A specialist case has nothing left to settle — there is no price to agree
+      // and no date to pick, so an email address is the whole requirement. Left
+      // waiting on a status the model kept forgetting to set, these leads were
+      // being dropped entirely.
       const readyToHandOver =
-        Boolean(turn.customer_email) && (hasSettledBooking || turn.survey.status === "follow_up");
+        Boolean(turn.customer_email) &&
+        (hasSettledBooking || turn.survey.status === "follow_up" || turn.survey.needs_specialist);
 
       if (readyToHandOver && turn.customer_email && !surveyLeadAlreadySent) {
         const { summary, mismatch } = summariseSurveyQuote(turn.survey);
