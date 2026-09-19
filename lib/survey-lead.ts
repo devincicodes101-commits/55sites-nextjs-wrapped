@@ -19,8 +19,14 @@ export const GOGREEN_BRAND = "GoGreen Surveyors";
 function resolveRecipient(): { to: string | null; routed: boolean } {
   const configured = process.env.GOGREEN_LEADS_EMAIL?.trim();
   if (configured) return { to: configured, routed: true };
-  const fallback = process.env.LEADS_NOTIFY_EMAIL?.trim();
-  return { to: fallback || null, routed: false };
+  // Not configured yet. Send it to ourselves rather than dropping it — a lead
+  // that fails silently is worse than one that lands in the wrong inbox with a
+  // subject line explaining why. Falls back to the sending address itself so
+  // there is always somewhere to deliver.
+  const from = process.env.QUOTE_FROM_EMAIL?.trim() || "";
+  const fallback =
+    process.env.LEADS_NOTIFY_EMAIL?.trim() || from.match(/<([^>]+)>/)?.[1] || from;
+  return { to: fallback && fallback.includes("@") ? fallback : null, routed: false };
 }
 
 /** Where survey leads are actually going right now. */

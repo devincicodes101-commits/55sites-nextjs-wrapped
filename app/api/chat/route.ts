@@ -141,7 +141,13 @@ export async function POST(request: Request) {
     if (turn.lane === "survey") {
       let leadSent = surveyLeadAlreadySent;
 
-      if (turn.survey_lead_ready && turn.customer_email && !surveyLeadAlreadySent) {
+      // The model sets survey_lead_ready, but the same facts are already in the
+      // extracted fields — so derive it here too rather than lose a lead to a
+      // flag the model forgot to flip.
+      const readyToHandOver =
+        Boolean(turn.customer_email) && (turn.survey_lead_ready || turn.survey.status !== null);
+
+      if (readyToHandOver && turn.customer_email && !surveyLeadAlreadySent) {
         const { summary, mismatch } = summariseSurveyQuote(turn.survey);
         if (mismatch) console.error("survey quote mismatch:", mismatch, turn.survey);
 
