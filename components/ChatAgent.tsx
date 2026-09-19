@@ -70,6 +70,7 @@ export default function ChatAgent({
   // afterwards and the API is stateless, so without this the same lead would be
   // emailed again on every following message.
   const surveyLeadSent = useRef(false);
+  const surveyLeadStage = useRef("");
 
   // Survey-report upload (Task B) inside the chat.
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -207,10 +208,15 @@ export default function ChatAgent({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next, surveyLeadSent: surveyLeadSent.current }),
+        body: JSON.stringify({
+          messages: next,
+          surveyLeadSent: surveyLeadSent.current,
+          surveyLeadStage: surveyLeadStage.current,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (data.surveyLeadSent) surveyLeadSent.current = true;
+      if (data.surveyLeadStage) surveyLeadStage.current = data.surveyLeadStage;
       if (data.reply || data.quote) {
         setMessages((m) => [
           ...m,

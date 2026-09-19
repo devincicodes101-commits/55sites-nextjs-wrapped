@@ -150,6 +150,7 @@ export async function POST(request: Request) {
     // over by email and deliberately never becomes a CRM quote.
     if (turn.lane === "survey") {
       let leadSent = surveyLeadAlreadySent;
+      let sentStage = String(body.surveyLeadStage || "");
 
       // The model sets survey_lead_ready, but the same facts are already in the
       // extracted fields — so derive it here too rather than lose a lead to a
@@ -160,15 +161,30 @@ export async function POST(request: Request) {
       // deciding — and one then changed their mind a turn later, after the email
       // had gone. The prompt guarantees a date value, so this cannot stall.
       const hasSettledBooking = turn.survey.status === "book" && Boolean(turn.survey.preferred_date);
-      // A specialist case has nothing left to settle — there is no price to agree
-      // and no date to pick, so an email address is the whole requirement. Left
-      // waiting on a status the model kept forgetting to set, these leads were
-      // being dropped entirely.
-      const readyToHandOver =
-        Boolean(turn.customer_email) &&
-        (hasSettledBooking || turn.survey.status === "follow_up" || turn.survey.needs_specialist);
 
-      if (readyToHandOver && turn.customer_email && !surveyLeadAlreadySent) {
+      // A specialist case has nothing left to settle — no price to agree, no date
+      // to pick — so an email address is the whole requirement.
+      const settled =
+        hasSettledBooking || turn.survey.status === "follow_up" || turn.survey.needs_specialist;
+
+      // Safety net. Survey work that is neither Management nor R&D (air testing,
+      // a register update) never gets survey_type set, and the assistant does not
+      // reliably raise needs_specialist for it either — so the bot was promising
+      // a specialist callback while nothing was sent. Once someone has given an
+      // email and the conversation has actually run, hand it over regardless.
+      const userTurns = messages.filter((m) => m.role === "user").length;
+      const unpriceable =
+        turn.survey.survey_type === null && turn.survey.quoted_gbp === null && userTurns >= 2;
+
+      const readyToHandOver = Boolean(turn.customer_email) && (settled || unpriceable);
+
+      // Capturing early must not cost us the booking that comes afterwards, so a
+      // settled outcome is allowed to send once more. Two emails at most.
+      const stage = settled ? "final" : "capture";
+      const alreadySentStage = String(body.surveyLeadStage || "");
+      const wouldDuplicate = alreadySentStage === "final" || alreadySentStage === stage;
+
+      if (readyToHandOver && turn.customer_email && !wouldDuplicate) {
         const { summary, mismatch } = summariseSurveyQuote(turn.survey);
         if (mismatch) console.error("survey quote mismatch:", mismatch, turn.survey);
 
@@ -185,12 +201,14 @@ export async function POST(request: Request) {
           status: turn.survey.status === "book" ? "book" : "follow_up",
           preferredDate: turn.survey.preferred_date,
           followUpPreference: turn.survey.follow_up_preference,
-          quotedSummary: mismatch ? `${summary ?? ""} [CHECK: ${mismatch}]`.trim() : summary,
+          quotedSummary:
+            summary ?? (stage === "capture" ? "No price given — see transcript for what they asked for" : null),
           transcript,
           city: brandCity,
           domain: brandDomain,
         });
         leadSent = r.sent;
+        if (r.sent) sentStage = stage;
         if (!r.sent) console.error("survey lead handover failed:", r.error);
       }
 
@@ -199,6 +217,7 @@ export async function POST(request: Request) {
         done: false,
         lane: "survey",
         surveyLeadSent: leadSent,
+        surveyLeadStage: sentStage,
         partner: GOGREEN_BRAND,
       });
     }
