@@ -183,9 +183,15 @@ export async function POST(request: Request) {
       // reliably raise needs_specialist for it either — so the bot was promising
       // a specialist callback while nothing was sent. Once someone has given an
       // email and the conversation has actually run, hand it over regardless.
+      // Details are now taken BEFORE the survey type is established, so an email
+      // address arrives early in every conversation. The backstop has to wait
+      // until collection is genuinely over, or it would fire on every enquiry.
       const userTurns = messages.filter((m) => m.role === "user").length;
       const unpriceable =
-        turn.survey.survey_type === null && turn.survey.quoted_gbp === null && userTurns >= 2;
+        turn.survey.survey_type === null &&
+        turn.survey.quoted_gbp === null &&
+        Boolean(turn.customer_name) &&
+        userTurns >= 5;
 
       const readyToHandOver = Boolean(turn.customer_email) && (settled || unpriceable);
 
