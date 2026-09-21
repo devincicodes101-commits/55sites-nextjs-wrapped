@@ -183,15 +183,18 @@ export async function POST(request: Request) {
       // reliably raise needs_specialist for it either — so the bot was promising
       // a specialist callback while nothing was sent. Once someone has given an
       // email and the conversation has actually run, hand it over regardless.
-      // Details are now taken BEFORE the survey type is established, so an email
-      // address arrives early in every conversation. The backstop has to wait
-      // until collection is genuinely over, or it would fire on every enquiry.
+      // Last-resort backstop for work the assistant never flags and never prices —
+      // air testing, a register update — so it cannot promise a callback and send
+      // nothing. Details are now collected BEFORE the survey type is known, so
+      // this has to sit well clear of the name/email/phone steps or it fires
+      // mid-flow on ordinary enquiries that were about to be quoted normally.
       const userTurns = messages.filter((m) => m.role === "user").length;
       const unpriceable =
         turn.survey.survey_type === null &&
         turn.survey.quoted_gbp === null &&
+        turn.survey.property_kind === null &&
         Boolean(turn.customer_name) &&
-        userTurns >= 5;
+        userTurns >= 8;
 
       const readyToHandOver = Boolean(turn.customer_email) && (settled || unpriceable);
 
