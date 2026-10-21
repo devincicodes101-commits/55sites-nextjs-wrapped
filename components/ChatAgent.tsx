@@ -71,6 +71,9 @@ export default function ChatAgent({
   // emailed again on every following message.
   const surveyLeadSent = useRef(false);
   const surveyLeadStage = useRef("");
+  // Set once a removal quote has been issued. The chat stays open afterwards,
+  // so without this a complaint about the price can prompt another quote.
+  const removalQuoteIssued = useRef(false);
 
   // Survey-report upload (Task B) inside the chat.
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -212,11 +215,13 @@ export default function ChatAgent({
           messages: next,
           surveyLeadSent: surveyLeadSent.current,
           surveyLeadStage: surveyLeadStage.current,
+          removalQuoteIssued: removalQuoteIssued.current,
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (data.surveyLeadSent) surveyLeadSent.current = true;
       if (data.surveyLeadStage) surveyLeadStage.current = data.surveyLeadStage;
+      if (data.removalQuoteIssued) removalQuoteIssued.current = true;
       if (data.reply || data.quote) {
         setMessages((m) => [
           ...m,

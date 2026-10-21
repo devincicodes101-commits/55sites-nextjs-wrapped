@@ -127,6 +127,12 @@ export async function POST(request: Request) {
   // emailed to GoGreen again on each subsequent message. The widget holds the
   // flag and sends it back.
   const surveyLeadAlreadySent = body.surveyLeadSent === true;
+  // A removal quote must be issued at most once per conversation. The model
+  // keeps re-flagging ready_to_quote when a customer complains about price,
+  // which otherwise generates duplicate quotes in the CRM and duplicate emails
+  // to the customer. The widget passes this back so the dedup survives the
+  // stateless API boundary - same pattern as surveyLeadSent.
+  const removalQuoteAlreadyIssued = body.removalQuoteIssued === true;
 
   // Reported to GoGreen as the source website. Deliberately separate from
   // brandDomain: the removal lane's behaviour must not change, and an embedded
@@ -247,6 +253,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ reply: turn.reply, done: false });
     }
 
+    // A quote has already gone out in this conversation. Don't do it again,
+    // whatever the model says - it tends to re-flag ready_to_quote on a price
+    // complaint, which otherwise issues an identical duplicate quote.
+    if (removalQuoteAlreadyIssued) {
+      return NextResponse.json({ reply: turn.reply, done: false, removalQuoteIssued: true });
+    }
+
     // Ready -> price EVERY requested service from the catalog and combine them
     // into one quote (so "artex AND a garage roof" becomes a 2-line quotation).
     const assessment = assessEnquiryItems({
@@ -335,6 +348,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       reply: turn.reply,
       done: true,
+      removalQuoteIssued: true,
       quote: {
         ref: quoteRef,
         businessName: brandName,
