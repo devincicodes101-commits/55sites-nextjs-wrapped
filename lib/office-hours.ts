@@ -4,7 +4,10 @@
  *
  * Europe/London, so the clock change is handled without us tracking it.
  */
-const OPEN_HOUR = Number(process.env.OFFICE_OPEN_HOUR ?? 9);
+// 08:00 per the client: the agent covers 17:00 to 08:00, and the team take over
+// at eight. Previously nine, which left the AI quoting during the first hour the
+// office was actually staffed.
+const OPEN_HOUR = Number(process.env.OFFICE_OPEN_HOUR ?? 8);
 const CLOSE_HOUR = Number(process.env.OFFICE_CLOSE_HOUR ?? 17);
 const OPEN_DAYS = (process.env.OFFICE_OPEN_DAYS ?? "1,2,3,4,5,6")
   .split(",")
