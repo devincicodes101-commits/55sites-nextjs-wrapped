@@ -3,7 +3,8 @@
  * (app 6a27307f924688c6c670d92b). Used for AI quote generation and site pricing.
  *
  * Live refresh: set BASE44_CATALOG_APP_ID (and optional token) to pull Service
- * entities at quote time; falls back to this snapshot if fetch fails.
+ * entities at quote time; falls back to this snapshot if fetch fails. See
+ * loadCatalogWithSource, and GET /api/catalog-health to see which one is in use.
  */
 
 export type CatalogUnitType = "fixed" | "per_sqm" | "per_unit" | string;
@@ -20,6 +21,12 @@ export type CatalogService = {
   unit_type: CatalogUnitType;
   estimated_duration: string | null;
   is_active: boolean;
+  /** Lowest total a line for this service can come to, in GBP. */
+  minimum_charge?: number;
+  /** Whether the phone agent may offer this service. Absent means true. */
+  voice_enabled?: boolean;
+  /** Short description written for the phone agent (max 150 chars in Base44). */
+  voice_summary?: string;
 };
 
 export type PricingHint = {
@@ -364,28 +371,40 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-/**
- * Prefer live Base44 Service catalog; fall back to the static snapshot.
- */
-export async function loadCatalogServices(): Promise<CatalogService[]> {
-  const appId = process.env.BASE44_CATALOG_APP_ID?.trim();
-  if (!appId) return CATALOG_PRICING;
+export type CatalogSource = {
+  services: CatalogService[];
+  source: "base44" | "snapshot";
+  /** Which request got the live rows. Absent when the snapshot is in use. */
+  via?: "sdk" | "api_key";
+  /** Why the snapshot is in use. Absent when the rows are live. */
+  reason?: string;
+};
 
-  try {
-    const { createClient } = await import("@base44/sdk");
-    const token = process.env.BASE44_API_TOKEN;
-    const serviceToken = process.env.BASE44_SERVICE_TOKEN;
-    const base44 = createClient({
-      appId,
-      ...(token ? { token } : {}),
-      ...(serviceToken ? { serviceToken } : {}),
-    });
+const CATALOG_TIMEOUT_MS = 4000;
+const CATALOG_API_BASE = process.env.BASE44_CRM_API_URL || "https://app.base44.com/api";
 
-    const entities = serviceToken ? base44.asServiceRole.entities : base44.entities;
-    const rows = (await entities.Service.list("-updated_date", 100)) as Array<Record<string, unknown>>;
-    const mapped: CatalogService[] = rows
-      .filter((r) => r.is_active !== false)
-      .map((r) => ({
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** Turn Base44 Service rows into usable services. Throws if none are usable. */
+function mapServiceRows(rows: unknown): CatalogService[] {
+  if (!Array.isArray(rows)) throw new Error("response was not a list of rows");
+
+  const mapped = (rows as Array<Record<string, unknown>>)
+    .filter((r) => r.is_active !== false)
+    .map((r): CatalogService => {
+      const minimumCharge = Number(r.minimum_charge);
+      const voiceSummary = typeof r.voice_summary === "string" ? r.voice_summary.trim() : "";
+      return {
         id: r.id != null ? String(r.id) : undefined,
         name: String(r.name ?? ""),
         description: String(r.description ?? ""),
@@ -394,11 +413,80 @@ export async function loadCatalogServices(): Promise<CatalogService[]> {
         unit_type: String(r.unit_type ?? "fixed"),
         estimated_duration: r.estimated_duration != null ? String(r.estimated_duration) : null,
         is_active: r.is_active !== false,
-      }))
-      .filter((s) => s.name && s.unit_price > 0);
+        ...(Number.isFinite(minimumCharge) && minimumCharge > 0 ? { minimum_charge: minimumCharge } : {}),
+        voice_enabled: r.voice_enabled !== false,
+        ...(voiceSummary ? { voice_summary: voiceSummary } : {}),
+      };
+    })
+    .filter((s) => s.name && s.unit_price > 0);
 
-    return mapped.length > 0 ? mapped : CATALOG_PRICING;
-  } catch {
-    return CATALOG_PRICING;
+  if (mapped.length === 0) throw new Error(`no usable rows (received ${rows.length})`);
+  return mapped;
+}
+
+async function fetchCatalogViaSdk(appId: string): Promise<CatalogService[]> {
+  const { createClient } = await import("@base44/sdk");
+  const token = process.env.BASE44_API_TOKEN;
+  const serviceToken = process.env.BASE44_SERVICE_TOKEN;
+  const base44 = createClient({
+    appId,
+    ...(token ? { token } : {}),
+    ...(serviceToken ? { serviceToken } : {}),
+  });
+
+  const entities = serviceToken ? base44.asServiceRole.entities : base44.entities;
+  return mapServiceRows(await withTimeout(entities.Service.list("-updated_date", 100), CATALOG_TIMEOUT_MS));
+}
+
+/** Same request as the SDK's list, authenticated the way lib/crm.ts does it. */
+async function fetchCatalogViaApiKey(appId: string, apiKey: string): Promise<CatalogService[]> {
+  const res = await fetch(`${CATALOG_API_BASE}/apps/${appId}/entities/Service?sort=-updated_date&limit=100`, {
+    headers: { api_key: apiKey },
+    // Next.js would otherwise be free to cache this and serve stale prices.
+    cache: "no-store",
+    signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return mapServiceRows(await res.json());
+}
+
+/**
+ * Prefer the live Base44 Service catalog, and report where the rows came from.
+ * Never throws: any failure falls back to the static snapshot.
+ */
+export async function loadCatalogWithSource(): Promise<CatalogSource> {
+  const fallback = (reason: string): CatalogSource => {
+    console.error(`[catalog] FALLBACK to snapshot: ${reason}`);
+    return { services: CATALOG_PRICING, source: "snapshot", reason };
+  };
+
+  const appId = process.env.BASE44_CATALOG_APP_ID?.trim();
+  if (!appId) return fallback("BASE44_CATALOG_APP_ID is not set");
+  const app = `${appId.slice(0, 6)}…`;
+
+  let sdkFailure: string;
+  try {
+    const services = await fetchCatalogViaSdk(appId);
+    const token = process.env.BASE44_SERVICE_TOKEN ? "service" : process.env.BASE44_API_TOKEN ? "user" : "none";
+    console.log(`[catalog] source=base44 via=sdk app=${app} services=${services.length} token=${token}`);
+    return { services, source: "base44", via: "sdk" };
+  } catch (err) {
+    sdkFailure = `sdk: ${errorMessage(err)}`;
   }
+
+  const apiKey = process.env.BASE44_CRM_TOKEN?.trim();
+  if (!apiKey) return fallback(sdkFailure);
+
+  console.warn(`[catalog] retrying with api_key after ${sdkFailure}`);
+  try {
+    const services = await fetchCatalogViaApiKey(appId, apiKey);
+    console.log(`[catalog] source=base44 via=api_key app=${app} services=${services.length} token=api_key`);
+    return { services, source: "base44", via: "api_key" };
+  } catch (err) {
+    return fallback(`${sdkFailure}; api_key: ${errorMessage(err)}`);
+  }
+}
+
+export async function loadCatalogServices(): Promise<CatalogService[]> {
+  return (await loadCatalogWithSource()).services;
 }
