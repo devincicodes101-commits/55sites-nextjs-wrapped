@@ -389,7 +389,7 @@ export type CatalogSource = {
   services: CatalogService[];
   source: "base44" | "snapshot";
   /** Which request got the live rows. Absent when the snapshot is in use. */
-  via?: "sdk" | "api_key";
+  via?: "sdk" | "token";
   /** Why the snapshot is in use. Absent when the rows are live. */
   reason?: string;
 };
@@ -457,9 +457,9 @@ async function fetchCatalogViaSdk(appId: string, timeoutMs: number): Promise<Cat
 }
 
 /** Same request as the SDK's list, authenticated the way lib/crm.ts does it. */
-async function fetchCatalogViaApiKey(appId: string, apiKey: string): Promise<CatalogService[]> {
+async function fetchCatalogViaToken(appId: string, token: string): Promise<CatalogService[]> {
   const res = await fetch(`${CATALOG_API_BASE}/apps/${appId}/entities/Service?sort=-updated_date&limit=100`, {
-    headers: { api_key: apiKey },
+    headers: { Authorization: `Bearer ${token}` },
     // Next.js would otherwise be free to cache this and serve stale prices.
     cache: "no-store",
     signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS),
@@ -473,7 +473,7 @@ async function fetchCatalogViaApiKey(appId: string, apiKey: string): Promise<Cat
  * Never throws: any failure falls back to the static snapshot.
  *
  * `sdkOnly` and `timeoutMs` are for callers on a hard deadline: one attempt, with
- * no api_key retry, so the worst case is a single timeout rather than two.
+ * no token retry, so the worst case is a single timeout rather than two.
  */
 export async function loadCatalogWithSource(
   options: { sdkOnly?: boolean; timeoutMs?: number } = {},
@@ -497,16 +497,16 @@ export async function loadCatalogWithSource(
     sdkFailure = `sdk: ${errorMessage(err)}`;
   }
 
-  const apiKey = process.env.BASE44_CRM_TOKEN?.trim();
-  if (!apiKey || options.sdkOnly) return fallback(sdkFailure);
+  const crmToken = process.env.BASE44_CRM_TOKEN?.trim();
+  if (!crmToken || options.sdkOnly) return fallback(sdkFailure);
 
-  console.warn(`[catalog] retrying with api_key after ${sdkFailure}`);
+  console.warn(`[catalog] retrying with BASE44_CRM_TOKEN after ${sdkFailure}`);
   try {
-    const services = await fetchCatalogViaApiKey(appId, apiKey);
-    console.log(`[catalog] source=base44 via=api_key app=${app} services=${services.length} token=api_key`);
-    return { services, source: "base44", via: "api_key" };
+    const services = await fetchCatalogViaToken(appId, crmToken);
+    console.log(`[catalog] source=base44 via=token app=${app} services=${services.length} token=crm`);
+    return { services, source: "base44", via: "token" };
   } catch (err) {
-    return fallback(`${sdkFailure}; api_key: ${errorMessage(err)}`);
+    return fallback(`${sdkFailure}; token: ${errorMessage(err)}`);
   }
 }
 
