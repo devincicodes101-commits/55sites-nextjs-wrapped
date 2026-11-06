@@ -55,7 +55,7 @@ curl -i -X POST https://asbestosteams.co.uk/api/vapi-assistant \
 - [ ] Make the test calls below.
 - [ ] In the logs, look for `[vapi-assistant] catalog=base44` or `catalog=cache`. `snapshot` or `stale-cache` means Base44 didn't answer in time.
 
-Quotes are only given outside office hours (Monday to Saturday, 08:00 to 17:00 UK), so make the pricing calls after that. Each one really creates and sends a CRM quote, so use your own email address and delete the test records afterwards.
+Quotes are only given outside office hours (Monday to Saturday, 09:00 to 17:00 UK), so make the pricing calls after that. Each one really creates and sends a CRM quote, so use your own email address and delete the test records afterwards.
 
 | Call | Expected |
 |---|---|
