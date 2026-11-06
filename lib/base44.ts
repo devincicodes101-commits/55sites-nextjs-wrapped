@@ -28,7 +28,8 @@ function getBase44Config() {
   }
 
   const entityName = process.env.BASE44_ENTITY ?? "Lead";
-  const token = process.env.BASE44_API_TOKEN;
+  // Writes are refused without a token, so fall back to the CRM's personal access token.
+  const token = process.env.BASE44_API_TOKEN || process.env.BASE44_CRM_TOKEN?.trim();
   const serviceToken = process.env.BASE44_SERVICE_TOKEN;
 
   return { appId, entityName, token, serviceToken };
@@ -180,7 +181,9 @@ export async function createQuoteInBase44(payload: QuoteLeadPayload) {
   try {
     return await entity.create(record);
   } catch (err) {
-    throw new Error(`Base44 Lead.create failed: ${formatBase44Error(err)}`, { cause: err });
+    // No `cause`: the SDK's error keeps the request and its Authorization header,
+    // and callers log what we throw.
+    throw new Error(`Base44 Lead.create failed: ${formatBase44Error(err)}`);
   }
 }
 

@@ -8,7 +8,8 @@ import type { GeneratedQuote } from "./gemini-quote";
  * with the Accept button, choose-date/diary scheduling, and the quote is stored
  * in the CRM's Quotes section, exactly like a rep sent it.
  *
- * Uses the REST API directly (verified working):
+ * Uses the REST API directly, authenticated with a Base44 personal access token
+ * (account API keys sent as `api_key` are rejected):
  *  - entities on the platform API host (app.base44.com)
  *  - functions on the app's own host (andamangroup.co.uk — the CRM's current
  *    live domain; was crmazzy.com) — the platform host rejects function calls
@@ -25,7 +26,7 @@ const ENTITIES_BASE = process.env.BASE44_CRM_API_URL || "https://app.base44.com/
 const FUNCTIONS_BASE = process.env.BASE44_CRM_FUNCTIONS_URL || "https://andamangroup.co.uk/api";
 
 function crmHeaders(): Record<string, string> {
-  return { "Content-Type": "application/json", api_key: process.env.BASE44_CRM_TOKEN! };
+  return { "Content-Type": "application/json", Authorization: `Bearer ${process.env.BASE44_CRM_TOKEN!.trim()}` };
 }
 
 export type CrmQuoteInput = {
