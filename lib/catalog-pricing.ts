@@ -272,17 +272,6 @@ export function findCatalogService(
   return partial[0] ?? null;
 }
 
-// Legacy: only reached if the corrugated row has no minimum_charge. Delete once
-// the live value is confirmed; minimum_charge then decides on its own.
-const LEGACY_CORRUGATED_MINIMUM = 350;
-
-function minimumChargeFor(service: CatalogService): number | null {
-  if (service.minimum_charge) return service.minimum_charge;
-  return normalizeCatalogKey(service.name).includes("corrugated sheet collection")
-    ? LEGACY_CORRUGATED_MINIMUM
-    : null;
-}
-
 /**
  * Lift a line up to the service's minimum charge. Keeps the true quantity and
  * recomputes the unit price, so the customer still sees how many they asked for.
@@ -292,8 +281,8 @@ export function applyMinimumCharge(
   quantity: number,
 ): { total: number; unitPrice: number; assumption?: string } {
   const total = round2(quantity * service.unit_price);
-  const minimum = minimumChargeFor(service);
-  if (minimum == null || total >= minimum) {
+  const minimum = service.minimum_charge;
+  if (!minimum || total >= minimum) {
     return { total, unitPrice: service.unit_price };
   }
   return {
