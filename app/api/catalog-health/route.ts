@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { loadCatalogWithSource } from "@/lib/catalog-pricing";
+import { buildServiceList } from "@/lib/voice-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,5 +22,6 @@ export async function GET() {
       voice_enabled: s.voice_enabled !== false,
       voice_summary: s.voice_summary ?? null,
     })),
+    service_list: buildServiceList(services),
   });
 }

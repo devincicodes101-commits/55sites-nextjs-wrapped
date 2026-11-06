@@ -26,7 +26,7 @@ export type EnquiryFields = {
 type RequiredInput = { key: keyof EnquiryFields; label: string };
 
 // Which customer input each pricing basis needs. `fixed` needs none (flat price).
-const UNIT_REQUIRED_INPUT: Record<string, RequiredInput | null> = {
+export const UNIT_REQUIRED_INPUT: Record<string, RequiredInput | null> = {
   per_sqm: { key: "area_sqm", label: "the area to be treated, in square metres (m²)" },
   per_lm: { key: "length_lm", label: "the length, in linear metres" },
   per_unit: { key: "quantity", label: "the number of items (e.g. sheets or 25kg bags)" },
@@ -35,7 +35,7 @@ const UNIT_REQUIRED_INPUT: Record<string, RequiredInput | null> = {
   fixed: null,
 };
 
-function requiredInputFor(unitType: string): RequiredInput | null {
+export function requiredInputFor(unitType: string): RequiredInput | null {
   return unitType in UNIT_REQUIRED_INPUT ? UNIT_REQUIRED_INPUT[unitType] : null;
 }
 

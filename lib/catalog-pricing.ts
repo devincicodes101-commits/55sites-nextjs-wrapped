@@ -177,7 +177,7 @@ export function formatCatalogUnit(unitType: CatalogUnitType): string {
   }
 }
 
-function shortNote(description: string, max = 160): string {
+export function shortNote(description: string, max = 160): string {
   const cleaned = description
     .replace(/IMPORTANT NOTE:[\s\S]*$/i, "")
     .replace(/\s+/g, " ")
@@ -438,18 +438,22 @@ function mapServiceRows(rows: unknown): CatalogService[] {
   return mapped;
 }
 
-async function fetchCatalogViaSdk(appId: string): Promise<CatalogService[]> {
-  const { createClient } = await import("@base44/sdk");
-  const token = process.env.BASE44_API_TOKEN;
-  const serviceToken = process.env.BASE44_SERVICE_TOKEN;
-  const base44 = createClient({
-    appId,
-    ...(token ? { token } : {}),
-    ...(serviceToken ? { serviceToken } : {}),
-  });
+async function fetchCatalogViaSdk(appId: string, timeoutMs: number): Promise<CatalogService[]> {
+  // The timeout covers loading the SDK too, which counts on a cold start.
+  const list = async () => {
+    const { createClient } = await import("@base44/sdk");
+    const token = process.env.BASE44_API_TOKEN;
+    const serviceToken = process.env.BASE44_SERVICE_TOKEN;
+    const base44 = createClient({
+      appId,
+      ...(token ? { token } : {}),
+      ...(serviceToken ? { serviceToken } : {}),
+    });
 
-  const entities = serviceToken ? base44.asServiceRole.entities : base44.entities;
-  return mapServiceRows(await withTimeout(entities.Service.list("-updated_date", 100), CATALOG_TIMEOUT_MS));
+    const entities = serviceToken ? base44.asServiceRole.entities : base44.entities;
+    return entities.Service.list("-updated_date", 100);
+  };
+  return mapServiceRows(await withTimeout(list(), timeoutMs));
 }
 
 /** Same request as the SDK's list, authenticated the way lib/crm.ts does it. */
@@ -467,8 +471,13 @@ async function fetchCatalogViaApiKey(appId: string, apiKey: string): Promise<Cat
 /**
  * Prefer the live Base44 Service catalog, and report where the rows came from.
  * Never throws: any failure falls back to the static snapshot.
+ *
+ * `sdkOnly` and `timeoutMs` are for callers on a hard deadline: one attempt, with
+ * no api_key retry, so the worst case is a single timeout rather than two.
  */
-export async function loadCatalogWithSource(): Promise<CatalogSource> {
+export async function loadCatalogWithSource(
+  options: { sdkOnly?: boolean; timeoutMs?: number } = {},
+): Promise<CatalogSource> {
   const fallback = (reason: string): CatalogSource => {
     console.error(`[catalog] FALLBACK to snapshot: ${reason}`);
     return { services: CATALOG_PRICING, source: "snapshot", reason };
@@ -480,7 +489,7 @@ export async function loadCatalogWithSource(): Promise<CatalogSource> {
 
   let sdkFailure: string;
   try {
-    const services = await fetchCatalogViaSdk(appId);
+    const services = await fetchCatalogViaSdk(appId, options.timeoutMs ?? CATALOG_TIMEOUT_MS);
     const token = process.env.BASE44_SERVICE_TOKEN ? "service" : process.env.BASE44_API_TOKEN ? "user" : "none";
     console.log(`[catalog] source=base44 via=sdk app=${app} services=${services.length} token=${token}`);
     return { services, source: "base44", via: "sdk" };
@@ -489,7 +498,7 @@ export async function loadCatalogWithSource(): Promise<CatalogSource> {
   }
 
   const apiKey = process.env.BASE44_CRM_TOKEN?.trim();
-  if (!apiKey) return fallback(sdkFailure);
+  if (!apiKey || options.sdkOnly) return fallback(sdkFailure);
 
   console.warn(`[catalog] retrying with api_key after ${sdkFailure}`);
   try {
