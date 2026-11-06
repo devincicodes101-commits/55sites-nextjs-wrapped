@@ -6,13 +6,14 @@ Work through this in order. The order matters: a secret set in Vercel before Vap
 
 - [ ] In Base44, check `voice_enabled` is off on any service the phone shouldn't offer. `/api/catalog-health` shows the value per service and the `service_list` text the agent will see.
 - [ ] Merge the code and deploy to both Vercel projects. With `VAPI_SERVER_SECRET` unset, live calls carry on working and the routes log a warning.
+- [ ] Once deployed, change the soffits row in Base44 from `per_unit` to `per_lm`, then make one test quote to see how "linear m" looks in the CRM. Until this is done, the agent asks soffit callers for a number of items instead of a length, and the number they give sets the price.
 
 ## 2. Make a copy of the assistant
 
 The new prompt uses `{{service_list}}`, which only gets filled in for calls that come through `/api/vapi-assistant`. On the main number's fixed assistant, the agent would see the placeholder instead of any services.
 
 - [ ] Duplicate the live assistant in Vapi.
-- [ ] Put the updated prompt on the **copy** only (see `system-prompt-changes.md`).
+- [ ] Paste `system-prompt.updated.md` onto the **copy** only.
 - [ ] Note the copy's assistant id.
 
 ## 3. send_quote tool
@@ -65,7 +66,10 @@ Quotes are only given outside office hours (Monday to Saturday, 08:00 to 17:00 U
 | 4 water tanks | No price; team callback, with the quantity on the lead |
 | "My garage roof" | Asks single or double, rather than guessing |
 | A new service added in Base44 | Offered within about 5 minutes, without a code or prompt edit |
-| A service with `voice_enabled` off | Not offered; team callback |
+| A service with `voice_enabled` off, such as a full roof replacement | Not offered; team callback |
+| "I need a survey", while surveys are off | No price; team callback |
+| "I already have a survey report" | Asked to email it to sales@asbestosukteams.co.uk |
+| Soffits, after the `per_lm` change | Asks for the length in linear metres |
 | During office hours | No price; team callback |
 
 ## 6. Main number
