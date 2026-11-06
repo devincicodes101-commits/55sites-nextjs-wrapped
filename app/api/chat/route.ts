@@ -275,6 +275,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ reply: turn.reply, done: false });
     }
 
+    if (assessment.skipped.length > 0) {
+      console.warn(`[chat] left out of the quote, not auto-priceable: ${assessment.skipped.join(", ")}`);
+    }
+
     const quote = assessment.quote;
     const quoteRef = makeQuoteRef(brandCity);
     const serviceLabel = turn.items.map((it) => it.service).filter(Boolean).join(", ");

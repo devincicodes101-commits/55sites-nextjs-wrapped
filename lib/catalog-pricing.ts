@@ -45,7 +45,7 @@ export const CATALOG_PRICING: CatalogService[] = [
       "Full removal and disposal of soffit boards from the property; scaffolding to be provided by the client or contractor on site. Price includes HSE notification, 2 men / 2 days labour, E11 environmental clean certification and waste disposal certification on completion. Priced per linear metre.",
     category: "general",
     unit_price: 145,
-    unit_type: "per_unit",
+    unit_type: "per_lm",
     estimated_duration: null,
     is_active: true,
   },
@@ -88,6 +88,7 @@ export const CATALOG_PRICING: CatalogService[] = [
     unit_type: "per_unit",
     estimated_duration: null,
     is_active: true,
+    minimum_charge: 350,
   },
   {
     name: "Asbestos Waste Collection 25 KG Bags",
@@ -165,6 +166,8 @@ export function formatCatalogUnit(unitType: CatalogUnitType): string {
   switch (unitType) {
     case "per_sqm":
       return "per m²";
+    case "per_lm":
+      return "per linear m";
     case "per_unit":
       return "per unit";
     case "fixed":
@@ -221,7 +224,9 @@ export function catalogToPriceItems(services: CatalogService[] = CATALOG_PRICING
           ? "fixed"
           : s.unit_type === "per_sqm"
             ? "from /m²"
-            : "from / unit",
+            : s.unit_type === "per_lm"
+              ? "from /linear m"
+              : "from / unit",
       note: shortNote(s.description, 90),
       featured: featured.has(s.name),
     }));
@@ -235,10 +240,15 @@ export function normalizeCatalogKey(name: string): string {
     .trim();
 }
 
-/** Match a Gemini-selected catalog name to a Service row (exact, then fuzzy). */
+/**
+ * Match a service name to a Service row: exact (ignoring case and punctuation),
+ * then partial. Partial takes the first match, which depends on catalog order,
+ * so the phone agent turns it off with `allowPartial: false`.
+ */
 export function findCatalogService(
   catalogName: string | null | undefined,
   services: CatalogService[] = CATALOG_PRICING,
+  options: { allowPartial?: boolean } = {},
 ): CatalogService | null {
   if (!catalogName || catalogName.toUpperCase() === "OTHER") return null;
   const needle = normalizeCatalogKey(catalogName);
@@ -247,13 +257,50 @@ export function findCatalogService(
   const active = services.filter((s) => s.is_active !== false);
   const exact = active.find((s) => normalizeCatalogKey(s.name) === needle);
   if (exact) return exact;
+  if (options.allowPartial === false) return null;
 
-  const partial = active.find(
+  const partial = active.filter(
     (s) =>
       needle.includes(normalizeCatalogKey(s.name)) ||
       normalizeCatalogKey(s.name).includes(needle),
   );
-  return partial ?? null;
+  if (partial.length > 1) {
+    console.warn(
+      `[catalog] "${catalogName}" partially matches ${partial.length} services (${partial.map((s) => s.name).join(", ")}); using "${partial[0].name}"`,
+    );
+  }
+  return partial[0] ?? null;
+}
+
+// Legacy: only reached if the corrugated row has no minimum_charge. Delete once
+// the live value is confirmed; minimum_charge then decides on its own.
+const LEGACY_CORRUGATED_MINIMUM = 350;
+
+function minimumChargeFor(service: CatalogService): number | null {
+  if (service.minimum_charge) return service.minimum_charge;
+  return normalizeCatalogKey(service.name).includes("corrugated sheet collection")
+    ? LEGACY_CORRUGATED_MINIMUM
+    : null;
+}
+
+/**
+ * Lift a line up to the service's minimum charge. Keeps the true quantity and
+ * recomputes the unit price, so the customer still sees how many they asked for.
+ */
+export function applyMinimumCharge(
+  service: CatalogService,
+  quantity: number,
+): { total: number; unitPrice: number; assumption?: string } {
+  const total = round2(quantity * service.unit_price);
+  const minimum = minimumChargeFor(service);
+  if (minimum == null || total >= minimum) {
+    return { total, unitPrice: service.unit_price };
+  }
+  return {
+    total: minimum,
+    unitPrice: round2(minimum / quantity),
+    assumption: `${service.name} (quantity ${round2(quantity)}): minimum charge of £${minimum} applied from the Service Catalog.`,
+  };
 }
 
 export type CatalogScopeLine = {
@@ -306,39 +353,15 @@ export function applyCatalogRates(
       continue;
     }
 
-    let quantity = qty;
-    let unitPrice = service.unit_price;
-    let total = round2(quantity * unitPrice);
-    let unit = formatDisplayUnit(service.unit_type, line.unit);
-
-    // Catalog rule: corrugated sheet collection has £350 minimum call-out (10 sheets).
-    if (normalizeCatalogKey(service.name).includes("corrugated sheet collection")) {
-      const minSheets = 10;
-      const minCallOut = 350;
-      if (quantity < minSheets || total < minCallOut) {
-        // Keep the TRUE sheet count from the survey; apply the minimum call-out
-        // to the total only (don't overwrite the quantity to the 10-sheet floor).
-        total = minCallOut;
-        unitPrice = round2(total / quantity);
-        assumptions.push(
-          `Corrugated sheet collection (${quantity} sheet${quantity === 1 ? "" : "s"}): minimum call-out £${minCallOut} applied from the Service Catalog (jobs under ${minSheets} sheets are charged at the minimum).`,
-        );
-      }
-    }
-
-    if (service.unit_type === "fixed") {
-      // Fixed catalog jobs are priced per occurrence; keep quantity as count of jobs.
-      unit = "job";
-      total = round2(quantity * service.unit_price);
-      unitPrice = service.unit_price;
-    }
+    const { total, unitPrice, assumption } = applyMinimumCharge(service, qty);
+    if (assumption) assumptions.push(assumption);
 
     line_items.push({
       catalog_id: service.id,
       catalog_name: service.name,
       description: line.description?.trim() || service.name,
-      quantity: round2(quantity),
-      unit,
+      quantity: round2(qty),
+      unit: formatDisplayUnit(service.unit_type, line.unit),
       unit_price_gbp: unitPrice,
       total_gbp: total,
     });
@@ -358,6 +381,8 @@ function formatDisplayUnit(unitType: CatalogUnitType, fallback: string): string 
   switch (unitType) {
     case "per_sqm":
       return "m²";
+    case "per_lm":
+      return "linear m";
     case "per_unit":
       return "unit";
     case "fixed":
