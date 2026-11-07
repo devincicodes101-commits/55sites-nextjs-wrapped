@@ -61,10 +61,10 @@ function round2(n: number): number {
 }
 
 export type EnquiryAssessment =
-  | { status: "unquotable"; reason: string }
+  | { status: "unquotable"; reason: string; skippedReasons?: Record<string, string> }
   | { status: "info_required"; missing: string[]; service: string }
   /** `skipped` lists requested services that are NOT in the quote: the team must follow them up. */
-  | { status: "quoted"; quote: GeneratedQuote; skipped: string[] };
+  | { status: "quoted"; quote: GeneratedQuote; skipped: string[]; skippedReasons?: Record<string, string> };
 
 export type AssessOptions = {
   /** Allow partial service-name matches. Defaults to true; the phone agent sets false. */
@@ -188,6 +188,7 @@ export function assessEnquiryItems(input: {
   const worksNames: string[] = [];
   const extraAssumptions: string[] = [];
   const skipped: string[] = [];
+  const skippedReasons: Record<string, string> = {};
 
   for (const item of input.items) {
     if (!item.service || !item.service.trim()) continue;
@@ -202,6 +203,7 @@ export function assessEnquiryItems(input: {
     // A service that isn't online-priceable is skipped (the priceable ones still quote).
     if (one.status === "unquotable") {
       skipped.push(item.service.trim());
+      skippedReasons[item.service.trim()] = one.reason;
       continue;
     }
     lineItems.push(...one.quote.line_items);
@@ -213,6 +215,7 @@ export function assessEnquiryItems(input: {
     return {
       status: "unquotable",
       reason: "None of the requested services are online-priceable — routed to our team.",
+      skippedReasons,
     };
   }
 
@@ -234,5 +237,5 @@ export function assessEnquiryItems(input: {
     risk_notes: "",
   };
 
-  return { status: "quoted", quote, skipped };
+  return { status: "quoted", quote, skipped, skippedReasons };
 }
