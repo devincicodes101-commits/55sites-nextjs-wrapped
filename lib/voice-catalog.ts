@@ -1,4 +1,10 @@
-import { CATALOG_PRICING, loadCatalogWithSource, shortNote, type CatalogService } from "./catalog-pricing";
+import {
+  CATALOG_PRICING,
+  loadCatalogWithSource,
+  normalizeCatalogKey,
+  shortNote,
+  type CatalogService,
+} from "./catalog-pricing";
 import { UNIT_REQUIRED_INPUT, requiredInputFor } from "./enquiry-quote";
 
 const FIXED_PRICE_ASK = "no measurement; ask how many if more than one";
@@ -30,6 +36,55 @@ export function buildServiceList(catalog: CatalogService[]): string {
       return `- ${s.name} | ask for: ${ask} | ${summary}`;
     })
     .join("\n");
+}
+
+// Words the agent may leave out of a service name without changing what it means.
+// Keep this short: any other missing word could be the one that sets the price
+// ("Garage Roof Removal" is missing "Double").
+const FILLER_WORDS = new Set(["asbestos"]);
+const MAX_CLOSEST_NAMES = 3;
+
+export type ServiceNameMatch =
+  | { kind: "exact" | "auto"; service: CatalogService }
+  | { kind: "none"; closest: string[] };
+
+function nameWords(name: string): string[] {
+  return normalizeCatalogKey(name).split(" ").filter(Boolean);
+}
+
+/**
+ * Match the name the phone agent sent to one catalog service. Beyond an exact match,
+ * it only accepts a name where every word is in exactly one service and all that's
+ * missing is filler. Anything else returns the closest names for the agent to choose from.
+ */
+export function resolveServiceName(name: string, catalog: CatalogService[]): ServiceNameMatch {
+  const active = catalog.filter((s) => s.is_active !== false);
+  const key = normalizeCatalogKey(name);
+
+  const exact = active.find((s) => normalizeCatalogKey(s.name) === key);
+  if (exact) return { kind: "exact", service: exact };
+
+  const asked = new Set(nameWords(name));
+  const autoMatches = active.filter((s) => {
+    const words = nameWords(s.name);
+    return (
+      asked.size > 0 &&
+      Array.from(asked).every((w) => words.includes(w)) &&
+      words.every((w) => asked.has(w) || FILLER_WORDS.has(w))
+    );
+  });
+  if (autoMatches.length === 1) return { kind: "auto", service: autoMatches[0] };
+
+  const closest = active
+    .map((s) => {
+      const words = nameWords(s.name);
+      return { name: s.name, shared: words.filter((w) => asked.has(w) && !FILLER_WORDS.has(w)).length, size: words.length };
+    })
+    .filter((s) => s.shared > 0)
+    .sort((a, b) => b.shared - a.shared || a.size - b.size || a.name.localeCompare(b.name))
+    .slice(0, MAX_CLOSEST_NAMES)
+    .map((s) => s.name);
+  return { kind: "none", closest };
 }
 
 const CACHE_FRESH_MS = 5 * 60 * 1000;
